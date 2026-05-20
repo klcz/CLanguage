@@ -48,7 +48,7 @@ class Lexer
                 'break' => TokenKind::BREAK,
                 'case' => TokenKind::CASE,
                 'char' => TokenKind::CHAR,
-                'class' => TokenKind::CLASS,
+                'class' => TokenKind::CLASS_,
                 'const' => TokenKind::CONST,
                 'continue' => TokenKind::CONTINUE,
                 'default' => TokenKind::DEFAULT,

@@ -15,7 +15,7 @@ class LexedDocument
             while ($lexer->advance()) {
                 $tokens[] = $lexer->CurrentToken;
             }
-        } catch (\NotSupportedException $err) {
+        } catch (\RuntimeException $err) {
             $t = $lexer->CurrentToken;
             $report->error(9000, $t->Location, $t->EndLocation, 'Not Supported: ' . $err->getMessage());
         } catch (\Exception $ex) {

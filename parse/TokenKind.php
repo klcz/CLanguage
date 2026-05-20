@@ -62,7 +62,7 @@ class TokenKind
     const TRUE = 313;
     const FALSE = 314;
     const STRUCT = 315;
-    const CLASS = 316;
+    const CLASS_ = 316;
     const UNION = 317;
     const ENUM = 318;
     const ELLIPSIS = 319;

@@ -43,6 +43,10 @@ class Preprocessor
         $i = 0;
         while ($i < count($tokens)) {
             $t = $tokens[$i];
+            if (!is_object($t)) {
+                $i++;
+                continue;
+            }
             if ($t->Kind === TokenKind::EOL || $t->Kind === ord('\\')) {
                 array_splice($tokens, $i, 1);
             } elseif ($t->Kind === TokenKind::IDENTIFIER) {
@@ -342,7 +346,7 @@ class PreprocessorContext
             $nex = $this->expressions;
             $nctx = new PreprocessorContext($this->report, $this->defines, $nex);
             $value = $expression->evalConstant($nctx);
-            return new ResolvedVariable($value, CBasicType::SignedInt);
+            return new ResolvedVariable($value, PPCBasicType::SignedInt);
         }
         return $this->baseTryResolveVariable($name, $argTypes);
     }

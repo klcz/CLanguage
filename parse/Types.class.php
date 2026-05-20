@@ -5,14 +5,6 @@ namespace parse;
 // Dependency stubs (minimal definitions for types used by the type system)
 // ============================================================================
 
-class Report
-{
-    public function error(int $code, string $message): void
-    {
-        // Stub — error reporting hook
-    }
-}
-
 class MachineInfo
 {
     public $charSize = 1;
@@ -38,13 +30,6 @@ class EmitContext
     }
 }
 
-abstract class TypeQualifiers
-{
-    const NONE = 0;
-    const CONST = 1;
-    const VOLATILE = 2;
-    const RESTRICT = 4;
-}
 
 // ============================================================================
 // Value — 8-byte union analogue

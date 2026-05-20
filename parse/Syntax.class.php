@@ -250,14 +250,14 @@ abstract class DeclarationsVisibility { const Public = 0; const Private = 1; con
 //============================================================================
 // Expression (abstract base)
 //============================================================================
-use parse\Types\CBasicType;
-use parse\Types\CArrayType;
-use parse\Types\CPointerType;
-use parse\Types\CStructType;
-use parse\Types\CFunctionType;
-use parse\Types\CStructMethod;
-use parse\Types\CType;
-use parse\Types\CReferenceType;
+use parse\CBasicType;
+use parse\CArrayType;
+use parse\CPointerType;
+use parse\CStructType;
+use parse\CFunctionType;
+use parse\CStructMethod;
+use parse\CType;
+use parse\CReferenceType;
 use parse\Interpreter\OpCode;
 use parse\Interpreter\Value;
 use parse\Compiler\EmitContext;
@@ -288,7 +288,7 @@ abstract class Expression
         elseif ($leftType instanceof CPointerType) return $leftType;
         else {
             $ec->Report->error(19, "'" . $op . "' cannot be applied to operand of type '" . $leftType . "'");
-            return CBasicType::$SignedInt;
+            return CBasicType::$signedInt;
         }
     }
 
@@ -306,7 +306,7 @@ abstract class Expression
         elseif ($rightType instanceof CArrayType && $leftBasicType !== null) return $rightType->ElementType->getPointer();
         else {
             $ec->Report->error(19, "'" . $op . "' cannot be applied to operands of type '" . $leftType . "' and '" . $rightType . "'");
-            return CBasicType::$SignedInt;
+            return CBasicType::$signedInt;
         }
     }
 
@@ -514,10 +514,10 @@ class ConstantExpression extends Expression
         if ($type !== null) { $this->ConstantType = $type; }
         else {
             if (is_string($val)) $this->ConstantType = CPointerType::pointerToConstChar();
-            elseif (is_bool($val)) $this->ConstantType = CBasicType::$Bool;
-            elseif (is_int($val)) $this->ConstantType = CBasicType::$SignedInt;
-            elseif (is_float($val)) $this->ConstantType = CBasicType::$Double;
-            else $this->ConstantType = CBasicType::$SignedInt;
+            elseif (is_bool($val)) $this->ConstantType = CBasicType::$bool;
+            elseif (is_int($val)) $this->ConstantType = CBasicType::$signedInt;
+            elseif (is_float($val)) $this->ConstantType = CBasicType::$double;
+            else $this->ConstantType = CBasicType::$signedInt;
         }
     }
 
@@ -531,13 +531,13 @@ class ConstantExpression extends Expression
         if ($intType->Signedness === 0) {
             $val = (int)$this->Value;
             if (self::fitsInSignedBytes($val, $curSize)) return $intType;
-            if ($mi->LongIntSize > $curSize && self::fitsInSignedBytes($val, $mi->LongIntSize)) return CBasicType::$SignedLongInt;
-            if ($mi->LongLongIntSize > $curSize && self::fitsInSignedBytes($val, $mi->LongLongIntSize)) return CBasicType::$SignedLongLongInt;
+            if ($mi->LongIntSize > $curSize && self::fitsInSignedBytes($val, $mi->LongIntSize)) return CBasicType::$signedLongInt;
+            if ($mi->LongLongIntSize > $curSize && self::fitsInSignedBytes($val, $mi->LongLongIntSize)) return CBasicType::$signedLongLongInt;
         } else {
             $val = (int)$this->Value;
             if (self::fitsInUnsignedBytes($val, $curSize)) return $intType;
-            if ($mi->LongIntSize > $curSize && self::fitsInUnsignedBytes($val, $mi->LongIntSize)) return CBasicType::$UnsignedLongInt;
-            if ($mi->LongLongIntSize > $curSize && self::fitsInUnsignedBytes($val, $mi->LongLongIntSize)) return CBasicType::$UnsignedLongLongInt;
+            if ($mi->LongIntSize > $curSize && self::fitsInUnsignedBytes($val, $mi->LongIntSize)) return CBasicType::$unsignedLongInt;
+            if ($mi->LongLongIntSize > $curSize && self::fitsInUnsignedBytes($val, $mi->LongLongIntSize)) return CBasicType::$unsignedLongLongInt;
         }
         return $intType;
     }
@@ -851,7 +851,7 @@ class UnaryExpression extends Expression
         $rightType = $this->Right->getEvaluatedCType($ec);
         $ft = self::tryResolveUnaryOperatorType($ec, $rightType, self::unopToOperatorName($this->Op));
         if ($ft !== null) return $ft->ReturnType;
-        return ($this->Op === Unop::Not) ? CBasicType::$SignedInt : self::getPromotedType($this->Right, $this->getOpString(), $ec);
+        return ($this->Op === Unop::Not) ? CBasicType::$signedInt : self::getPromotedType($this->Right, $this->getOpString(), $ec);
     }
 
     private function getOpString(): string {
@@ -930,7 +930,7 @@ class CastExpression extends Expression
         $this->TypeName = $typeName; $this->InnerExpression = $innerExpression;
     }
 
-    public function getEvaluatedCType($ec): CType { return $ec->resolveTypeName($this->TypeName) ?? CBasicType::$SignedInt; }
+    public function getEvaluatedCType($ec): CType { return $ec->resolveTypeName($this->TypeName) ?? CBasicType::$signedInt; }
     protected function doEmit($ec): void {
         $rtype = $this->getEvaluatedCType($ec);
         $itype = $this->InnerExpression->getEvaluatedCType($ec);
@@ -964,7 +964,7 @@ class DereferenceExpression extends Expression
         $it = $this->InnerExpression->getEvaluatedCType($ec);
         if ($it instanceof CPointerType) return $it->InnerType;
         $ec->Report->error(0, "Cannot dereference values of type `" . $it . "`.");
-        return CBasicType::$SignedInt;
+        return CBasicType::$signedInt;
     }
 
     protected function doEmit($ec): void { $this->InnerExpression->emit($ec); $ec->emit(OpCode::LoadPointer); }
@@ -1154,7 +1154,7 @@ class LogicExpression extends Expression
         $ec->emitLabel($endLabel);
     }
 
-    public function getEvaluatedCType($ec): CType { return CBasicType::$Bool; }
+    public function getEvaluatedCType($ec): CType { return CBasicType::$bool; }
     public function __toString(): string { return "(" . $this->Left . " " . $this->Op . " " . $this->Right . ")"; }
 }
 
@@ -1219,7 +1219,7 @@ class RelationalExpression extends Expression
         $rightType = $this->Right->getEvaluatedCType($ec);
         $ft = self::tryResolveBinaryOperatorType($ec, $leftType, $rightType, self::relOpToOperatorName($this->Op));
         if ($ft !== null) return $ft->ReturnType;
-        return CBasicType::$Bool;
+        return CBasicType::$bool;
     }
 
     public function __toString(): string { return "(" . $this->Left . " " . $this->Op . " " . $this->Right . ")"; }
@@ -1241,7 +1241,7 @@ class MemberFromReferenceExpression extends Expression
         $targetType = $this->Left->getEvaluatedCType($ec);
         if ($targetType instanceof CStructType) {
             $member = self::findMember($targetType, $this->MemberName);
-            if ($member === null) { $ec->Report->error(1061, "'{1}' not found in '{0}'", $targetType->Name, $this->MemberName); return CBasicType::$SignedInt; }
+            if ($member === null) { $ec->Report->error(1061, "'{1}' not found in '{0}'", $targetType->Name, $this->MemberName); return CBasicType::$signedInt; }
             return $member->MemberType;
         }
         throw new \RuntimeException("Member type on " . get_class($targetType));
@@ -1313,11 +1313,11 @@ class MemberFromPointerExpression extends Expression
         if ($pType !== null && $pType->InnerType instanceof CStructType) {
             $structType = $pType->InnerType;
             $member = self::findMember($structType, $this->MemberName);
-            if ($member === null) { $ec->Report->error(1061, "'{1}' not found in '{0}'", $structType->Name, $this->MemberName); return CBasicType::$SignedInt; }
+            if ($member === null) { $ec->Report->error(1061, "'{1}' not found in '{0}'", $structType->Name, $this->MemberName); return CBasicType::$signedInt; }
             return $member->MemberType;
         }
-        if ($pType !== null) { $ec->Report->error(1061, "'{1}' not found in '{0}'", $pType, $this->MemberName); return CBasicType::$SignedInt; }
-        $ec->Report->error(1061, "-> cannot be used with '{0}'", $targetType); return CBasicType::$SignedInt;
+        if ($pType !== null) { $ec->Report->error(1061, "'{1}' not found in '{0}'", $pType, $this->MemberName); return CBasicType::$signedInt; }
+        $ec->Report->error(1061, "-> cannot be used with '{0}'", $targetType); return CBasicType::$signedInt;
     }
 
     protected function doEmit($ec): void {
@@ -1374,7 +1374,7 @@ class ScopeResolutionExpression extends Expression
 
     public function getEvaluatedCType($ec): CType {
         $r = $ec->tryResolveQualifiedFunction($this->TypeName, $this->MemberName, null);
-        return ($r !== null) ? $r->VariableType : CBasicType::$SignedInt;
+        return ($r !== null) ? $r->VariableType : CBasicType::$signedInt;
     }
 
     protected function doEmit($ec): void {
@@ -1407,7 +1407,7 @@ class SizeOfExpression extends Expression
     public $Query;
 
     public function __construct($query) { $this->Query = $query; }
-    public function getEvaluatedCType($ec): CType { return CBasicType::$UnsignedLongInt; }
+    public function getEvaluatedCType($ec): CType { return CBasicType::$unsignedLongInt; }
     protected function doEmit($ec): void { $ec->emit(OpCode::LoadConstant, $this->Query->getEvaluatedCType($ec)->getNumValues()); }
 }
 
@@ -1419,7 +1419,7 @@ class SizeOfTypeExpression extends Expression
     public $TypeName;
 
     public function __construct(TypeName $typeName) { $this->TypeName = $typeName; }
-    public function getEvaluatedCType($ec): CType { return CBasicType::$UnsignedLongInt; }
+    public function getEvaluatedCType($ec): CType { return CBasicType::$unsignedLongInt; }
     protected function doEmit($ec): void { $ec->emit(OpCode::LoadConstant, $ec->resolveTypeName($this->TypeName)->getNumValues()); }
 }
 
@@ -1974,7 +1974,7 @@ class MultiDeclaratorStatement extends Statement
                         }
                         $found = false; foreach ($block->Variables as $v) { if ($v->Name === $name) { $found = true; break; } }
                         if ($found) $context->Report->error(2086, "Redefinition of '{0}'", $name);
-                        else $block->addVariable($name, $ctype ?? CBasicType::$SignedInt);
+                        else $block->addVariable($name, $ctype ?? CBasicType::$signedInt);
                     }
                     if ($idecl->Initializer !== null) {
                         $varExpr = new VariableExpression($name, Location::$Null, Location::$Null);
@@ -2076,7 +2076,7 @@ class FuncallExpression extends Expression
         $argTypes = []; foreach ($this->Arguments as $a) $argTypes[] = $a->getEvaluatedCType($ec);
         $function = $this->resolveOverload($this->Function, $argTypes, $ec);
         $ft = $function->CType;
-        return ($ft instanceof CFunctionType) ? $ft->ReturnType : CBasicType::$SignedInt;
+        return ($ft instanceof CFunctionType) ? $ft->ReturnType : CBasicType::$signedInt;
     }
 
     protected function doEmit($ec): void {
@@ -2189,5 +2189,5 @@ class Overload
         $this->CType = $type; $this->emit = $emit ?? function ($_) {}; $this->VTableSlotIndex = $vTableSlotIndex;
     }
     public static function noEmit(): callable { return function ($_) {}; }
-    public static function error(): Overload { return new Overload(CBasicType::$SignedInt, function ($_) {}); }
+    public static function error(): Overload { return new Overload(CBasicType::$signedInt, function ($_) {}); }
 }

@@ -1,9 +1,10 @@
 <?php
 namespace parse;
 
-class ParserInput
+class ParserInput implements \parse\yyInput
 {
     public $Tokens;
+    public $CurrentToken;
     private $index = -1;
     private $typedefs = [];
 
@@ -17,6 +18,7 @@ class ParserInput
         if ($this->index + 1 < count($this->Tokens)) {
             $this->index++;
             $this->tryRegisterStructName();
+            $this->CurrentToken = $this->Tokens[$this->index];
             return true;
         }
         return false;
@@ -25,7 +27,7 @@ class ParserInput
     private function tryRegisterStructName(): void
     {
         $tok = $this->Tokens[$this->index];
-        if ($tok->Kind === TokenKind::STRUCT || $tok->Kind === TokenKind::CLASS || $tok->Kind === TokenKind::UNION) {
+        if ($tok->Kind === TokenKind::STRUCT || $tok->Kind === TokenKind::CLASS_ || $tok->Kind === TokenKind::UNION) {
             if ($this->index + 2 < count($this->Tokens)) {
                 $nameTok = $this->Tokens[$this->index + 1];
                 $afterName = $this->Tokens[$this->index + 2];
