@@ -6,6 +6,7 @@
     <IsPackable>false</IsPackable>
     <RootNamespace>CLanguage.Tests</RootNamespace>
     <LangVersion>latest</LangVersion>
+    <Platforms>AnyCPU;x64</Platforms>
   </PropertyGroup>
 
   <ItemGroup>
