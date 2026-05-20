@@ -1289,7 +1289,7 @@ loop:
 	if (comment_lines > 0)
 		comment_lines++;
 
-	if ((lineno - (a_lineno + comment_lines)) > 2)
+	if ((lineno - (a_lineno + comment_lines)) > 20)
 	{
 		char mname[28];
 		char *line_define;
