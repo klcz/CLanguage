@@ -28,6 +28,8 @@ There is a static `Eval` method on `CLanguageService` to make compiling and exec
 For example:
 
 ```csharp
+// jay -vc  -o CParser.cs CParser.jay < skeleton.cs
+
 var result = CLanguageService.Eval("2 + 3");
 Assert.AreEqual(5, result);
 ```
