@@ -1,5 +1,9 @@
 <?php
+
 namespace parse;
+
+
+include_once "./Types.class.php";
 
 //============================================================================
 // Location
@@ -57,6 +61,7 @@ class Location
         return !self::opEqual($x, $y);
     }
 }
+
 Location::$Null = new Location();
 
 //============================================================================
@@ -80,12 +85,22 @@ class Document
     {
         $ext = strtolower(pathinfo($this->Path, PATHINFO_EXTENSION));
         switch ($ext) {
-            case 'c': case 'cpp': case 'cxx': case 'm': case 'mpp': case 'ino': return true;
-            default: return false;
+            case 'c':
+            case 'cpp':
+            case 'cxx':
+            case 'm':
+            case 'mpp':
+            case 'ino':
+                return true;
+            default:
+                return false;
         }
     }
 
-    public function __toString(): string { return $this->Path; }
+    public function __toString(): string
+    {
+        return $this->Path;
+    }
 }
 
 //============================================================================
@@ -96,7 +111,11 @@ class ColorSpan
     public $Index = 0;
     public $Length = 0;
     public $Color = SyntaxColor::Comment;
-    public function __toString(): string { return (string)$this->Color; }
+
+    public function __toString(): string
+    {
+        return (string)$this->Color;
+    }
 }
 
 abstract class SyntaxColor
@@ -190,15 +209,24 @@ abstract class VariableScope
 abstract class Statement
 {
     public $Location;
-    public function emit($ec): void { $this->doEmit($ec); }
+
+    public function emit($ec): void
+    {
+        $this->doEmit($ec);
+    }
+
     protected abstract function doEmit($ec): void;
+
     public abstract function getAlwaysReturns(): bool;
-    public function toBlock(): Block {
+
+    public function toBlock(): Block
+    {
         if ($this instanceof Block) return $this;
         $b = new Block(VariableScope::Local);
         $b->addStatement($this);
         return $b;
     }
+
     public abstract function addDeclarationToBlock($context): void;
 }
 
@@ -207,61 +235,90 @@ abstract class Statement
 //============================================================================
 abstract class Binop
 {
-    const Add = 0; const Subtract = 1; const Multiply = 2; const Divide = 3;
-    const Mod = 4; const ShiftLeft = 5; const ShiftRight = 6;
-    const BinaryAnd = 7; const BinaryOr = 8; const BinaryXor = 9;
+    const Add = 0;
+    const Subtract = 1;
+    const Multiply = 2;
+    const Divide = 3;
+    const Mod = 4;
+    const ShiftLeft = 5;
+    const ShiftRight = 6;
+    const BinaryAnd = 7;
+    const BinaryOr = 8;
+    const BinaryXor = 9;
 }
 
 abstract class Unop
 {
-    const None = 0; const Not = 1; const Negate = 2; const BinaryComplement = 3;
-    const PreIncrement = 4; const PreDecrement = 5; const PostIncrement = 6; const PostDecrement = 7;
+    const None = 0;
+    const Not = 1;
+    const Negate = 2;
+    const BinaryComplement = 3;
+    const PreIncrement = 4;
+    const PreDecrement = 5;
+    const PostIncrement = 6;
+    const PostDecrement = 7;
 }
 
-abstract class LogicOp { const And = 0; const Or = 1; }
+abstract class LogicOp
+{
+    const And = 0;
+    const Or = 1;
+}
 
 abstract class RelationalOp
 {
-    const Equals = 0; const NotEquals = 1; const LessThan = 2;
-    const LessThanOrEqual = 3; const GreaterThan = 4; const GreaterThanOrEqual = 5;
+    const Equals = 0;
+    const NotEquals = 1;
+    const LessThan = 2;
+    const LessThanOrEqual = 3;
+    const GreaterThan = 4;
+    const GreaterThanOrEqual = 5;
 }
 
 abstract class TypeQualifiers
 {
-    const None = 0; const Const_ = 1; const Restrict = 2; const Volatile = 4;
+    const None = 0;
+    const Const_ = 1;
+    const Restrict = 2;
+    const Volatile = 4;
 }
 
-abstract class FunctionSpecifier { const None = 0; const Inline = 1; }
+abstract class FunctionSpecifier
+{
+    const None = 0;
+    const Inline = 1;
+}
 
 abstract class TypeSpecifierKind
 {
-    const Builtin = 0; const Typename = 1; const Struct = 2;
-    const Class_ = 3; const Union = 4; const Enum = 5;
+    const Builtin = 0;
+    const Typename = 1;
+    const Struct = 2;
+    const Class_ = 3;
+    const Union = 4;
+    const Enum = 5;
 }
 
 abstract class StorageClassSpecifier
 {
-    const None = 0; const Typedef = 1; const Extern = 2;
-    const Static_ = 4; const Auto = 8; const Register = 16;
+    const None = 0;
+    const Typedef = 1;
+    const Extern = 2;
+    const Static_ = 4;
+    const Auto = 8;
+    const Register = 16;
 }
 
-abstract class DeclarationsVisibility { const Public = 0; const Private = 1; const Protected = 2; }
+abstract class DeclarationsVisibility
+{
+    const Public = 0;
+    const Private = 1;
+    const Protected = 2;
+}
 
 //============================================================================
 // Expression (abstract base)
 //============================================================================
-use parse\CBasicType;
-use parse\CArrayType;
-use parse\CPointerType;
-use parse\CStructType;
-use parse\CFunctionType;
-use parse\CStructMethod;
-use parse\CType;
-use parse\CReferenceType;
-use parse\Interpreter\OpCode;
-use parse\Interpreter\Value;
-use parse\Compiler\EmitContext;
-use parse\Compiler\ResolvedVariable;
 
 abstract class Expression
 {
@@ -269,12 +326,27 @@ abstract class Expression
     public $EndLocation;
     public $HasError = false;
 
-    public function emit($ec): void { $this->doEmit($ec); }
-    public function getCanEmitPointer(): bool { return false; }
-    public function emitPointer($ec): void { $this->doEmitPointer($ec); }
+    public function emit($ec): void
+    {
+        $this->doEmit($ec);
+    }
+
+    public function getCanEmitPointer(): bool
+    {
+        return false;
+    }
+
+    public function emitPointer($ec): void
+    {
+        $this->doEmitPointer($ec);
+    }
+
     public abstract function getEvaluatedCType($ec): CType;
+
     protected abstract function doEmit($ec): void;
-    protected function doEmitPointer($ec): void {
+
+    protected function doEmitPointer($ec): void
+    {
         throw new \RuntimeException("Cannot get address of " . get_class($this) . " `" . $this . "`");
     }
 
@@ -288,7 +360,7 @@ abstract class Expression
         elseif ($leftType instanceof CPointerType) return $leftType;
         else {
             $ec->Report->error(19, "'" . $op . "' cannot be applied to operand of type '" . $leftType . "'");
-            return CBasicType::$signedInt;
+            return CBasicType::$SignedInt;
         }
     }
 
@@ -296,7 +368,8 @@ abstract class Expression
     {
         $leftType = $leftExpr->getEvaluatedCType($ec);
         $rightType = $rightExpr->getEvaluatedCType($ec);
-        $leftBasicType = null; $rightBasicType = null;
+        $leftBasicType = null;
+        $rightBasicType = null;
         if ($leftType instanceof CBasicType) $leftBasicType = $leftType;
         if ($rightType instanceof CBasicType) $rightBasicType = $rightType;
         if ($leftBasicType !== null && $rightBasicType !== null) return $leftBasicType->arithmeticConvert($rightBasicType, $ec);
@@ -306,52 +379,91 @@ abstract class Expression
         elseif ($rightType instanceof CArrayType && $leftBasicType !== null) return $rightType->ElementType->getPointer();
         else {
             $ec->Report->error(19, "'" . $op . "' cannot be applied to operands of type '" . $leftType . "' and '" . $rightType . "'");
-            return CBasicType::$signedInt;
+            return CBasicType::$SignedInt;
         }
     }
 
-    public function evalConstant($ec) {
+    public function evalConstant($ec)
+    {
         $ec->Report->error(133, "'" . $this . "' not constant");
         return 0;
     }
 
-    protected static function binopToOperatorName(int $op): ?string {
+    protected static function binopToOperatorName(int $op): ?string
+    {
         switch ($op) {
-            case Binop::Add: return "operator+"; case Binop::Subtract: return "operator-";
-            case Binop::Multiply: return "operator*"; case Binop::Divide: return "operator/";
-            case Binop::Mod: return "operator%"; case Binop::ShiftLeft: return "operator<<";
-            case Binop::ShiftRight: return "operator>>"; case Binop::BinaryAnd: return "operator&";
-            case Binop::BinaryOr: return "operator|"; case Binop::BinaryXor: return "operator^";
-            default: return null;
+            case Binop::Add:
+                return "operator+";
+            case Binop::Subtract:
+                return "operator-";
+            case Binop::Multiply:
+                return "operator*";
+            case Binop::Divide:
+                return "operator/";
+            case Binop::Mod:
+                return "operator%";
+            case Binop::ShiftLeft:
+                return "operator<<";
+            case Binop::ShiftRight:
+                return "operator>>";
+            case Binop::BinaryAnd:
+                return "operator&";
+            case Binop::BinaryOr:
+                return "operator|";
+            case Binop::BinaryXor:
+                return "operator^";
+            default:
+                return null;
         }
     }
 
-    protected static function relOpToOperatorName(int $op): ?string {
+    protected static function relOpToOperatorName(int $op): ?string
+    {
         switch ($op) {
-            case RelationalOp::Equals: return "operator=="; case RelationalOp::NotEquals: return "operator!=";
-            case RelationalOp::LessThan: return "operator<"; case RelationalOp::LessThanOrEqual: return "operator<=";
-            case RelationalOp::GreaterThan: return "operator>"; case RelationalOp::GreaterThanOrEqual: return "operator>=";
-            default: return null;
+            case RelationalOp::Equals:
+                return "operator==";
+            case RelationalOp::NotEquals:
+                return "operator!=";
+            case RelationalOp::LessThan:
+                return "operator<";
+            case RelationalOp::LessThanOrEqual:
+                return "operator<=";
+            case RelationalOp::GreaterThan:
+                return "operator>";
+            case RelationalOp::GreaterThanOrEqual:
+                return "operator>=";
+            default:
+                return null;
         }
     }
 
-    protected static function unopToOperatorName(int $op): ?string {
+    protected static function unopToOperatorName(int $op): ?string
+    {
         switch ($op) {
-            case Unop::Negate: return "operator-"; case Unop::Not: return "operator!";
-            case Unop::BinaryComplement: return "operator~";
-            default: return null;
+            case Unop::Negate:
+                return "operator-";
+            case Unop::Not:
+                return "operator!";
+            case Unop::BinaryComplement:
+                return "operator~";
+            default:
+                return null;
         }
     }
 
     protected static function findBestOperatorMethod(CStructType $structType, string $operatorName, array $argTypes): ?CStructMethod
     {
         $methods = $structType->findMethods($operatorName);
-        $best = null; $bestScore = 0;
+        $best = null;
+        $bestScore = 0;
         foreach ($methods as $m) {
             $mt = $m->MemberType;
             if ($mt instanceof CFunctionType) {
                 $score = $mt->scoreParameterTypeMatches($argTypes);
-                if ($score > $bestScore) { $bestScore = $score; $best = $m; }
+                if ($score > $bestScore) {
+                    $bestScore = $score;
+                    $best = $m;
+                }
             }
         }
         return $best;
@@ -390,7 +502,8 @@ abstract class Expression
     protected static function tryEmitBinaryOperatorCall($ec, CType $leftType, CType $rightType, $left, $right, ?string $operatorName): bool
     {
         if ($operatorName === null) return false;
-        $argTypes = [$rightType]; $args = [$right];
+        $argTypes = [$rightType];
+        $args = [$right];
         if ($leftType instanceof CStructType) {
             $method = self::findBestOperatorMethod($leftType, $operatorName, $argTypes);
             if ($method !== null) {
@@ -420,10 +533,12 @@ abstract class Expression
     {
         if ($operatorName === null) return false;
         if ($operandType instanceof CStructType) {
-            $emptyTypes = []; $emptyArgs = [];
+            $emptyTypes = [];
+            $emptyArgs = [];
             $method = self::findBestOperatorMethod($operandType, $operatorName, $emptyTypes);
             if ($method !== null) {
-                $funcType = $method->MemberType; $resolved = $ec->resolveMethodFunction($operandType, $method);
+                $funcType = $method->MemberType;
+                $resolved = $ec->resolveMethodFunction($operandType, $method);
                 self::emitMemberOperatorCall($ec, $operandType, $resolved, $funcType, $operand, $emptyArgs, $emptyTypes);
                 return true;
             }
@@ -432,7 +547,8 @@ abstract class Expression
                 self::emitMemberOperatorCall($ec, $operandType, $resolvedOp, $resolvedOp->VariableType, $operand, $emptyArgs, $emptyTypes);
                 return true;
             }
-            $argTypes = [$operandType]; $res = $ec->tryResolveVariable($operatorName, $argTypes);
+            $argTypes = [$operandType];
+            $res = $ec->tryResolveVariable($operatorName, $argTypes);
             if ($res !== null && $res->VariableType instanceof CFunctionType) {
                 self::emitFreeStandingOperatorCall($ec, $res, [$operand], $argTypes);
                 return true;
@@ -506,63 +622,97 @@ abstract class Expression
 //============================================================================
 class ConstantExpression extends Expression
 {
-    public $Value; public $ConstantType;
-    public static $Zero; public static $One; public static $NegativeOne; public static $True; public static $False;
+    public $Value;
+    public $ConstantType;
+    public static $Zero;
+    public static $One;
+    public static $NegativeOne;
+    public static $True;
+    public static $False;
 
-    public function __construct($val, ?CType $type = null) {
+    public function __construct($val, ?CType $type = null)
+    {
         $this->Value = $val;
-        if ($type !== null) { $this->ConstantType = $type; }
-        else {
+        if ($type !== null) {
+            $this->ConstantType = $type;
+        } else {
             if (is_string($val)) $this->ConstantType = CPointerType::pointerToConstChar();
-            elseif (is_bool($val)) $this->ConstantType = CBasicType::$bool;
-            elseif (is_int($val)) $this->ConstantType = CBasicType::$signedInt;
-            elseif (is_float($val)) $this->ConstantType = CBasicType::$double;
-            else $this->ConstantType = CBasicType::$signedInt;
+            elseif (is_bool($val)) $this->ConstantType = CBasicType::$Bool;
+            elseif (is_int($val)) $this->ConstantType = CBasicType::$SignedInt;
+            elseif (is_float($val)) $this->ConstantType = CBasicType::$Double;
+            else $this->ConstantType = CBasicType::$SignedInt;
         }
     }
 
-    public function getEvaluatedCType($ec): CType {
+    public function getEvaluatedCType($ec): CType
+    {
         if ($this->ConstantType instanceof CIntType) return $this->promoteIntConstant($this->ConstantType, $ec);
         return $this->ConstantType;
     }
 
-    private function promoteIntConstant($intType, $ec) {
-        $mi = $ec->MachineInfo; $curSize = $intType->getByteSize($mi);
+    private function promoteIntConstant($intType, $ec)
+    {
+        $mi = $ec->MachineInfo;
+        $curSize = $intType->getByteSize($mi);
         if ($intType->Signedness === 0) {
             $val = (int)$this->Value;
             if (self::fitsInSignedBytes($val, $curSize)) return $intType;
-            if ($mi->LongIntSize > $curSize && self::fitsInSignedBytes($val, $mi->LongIntSize)) return CBasicType::$signedLongInt;
-            if ($mi->LongLongIntSize > $curSize && self::fitsInSignedBytes($val, $mi->LongLongIntSize)) return CBasicType::$signedLongLongInt;
+            if ($mi->LongIntSize > $curSize && self::fitsInSignedBytes($val, $mi->LongIntSize)) return CBasicType::$SignedLongInt;
+            if ($mi->LongLongIntSize > $curSize && self::fitsInSignedBytes($val, $mi->LongLongIntSize)) return CBasicType::$SignedLongLongInt;
         } else {
             $val = (int)$this->Value;
             if (self::fitsInUnsignedBytes($val, $curSize)) return $intType;
-            if ($mi->LongIntSize > $curSize && self::fitsInUnsignedBytes($val, $mi->LongIntSize)) return CBasicType::$unsignedLongInt;
-            if ($mi->LongLongIntSize > $curSize && self::fitsInUnsignedBytes($val, $mi->LongLongIntSize)) return CBasicType::$unsignedLongLongInt;
+            if ($mi->LongIntSize > $curSize && self::fitsInUnsignedBytes($val, $mi->LongIntSize)) return CBasicType::$UnsignedLongInt;
+            if ($mi->LongLongIntSize > $curSize && self::fitsInUnsignedBytes($val, $mi->LongLongIntSize)) return CBasicType::$UnsignedLongLongInt;
         }
         return $intType;
     }
 
-    private static function fitsInSignedBytes(int $val, int $byteSize): bool {
+    private static function fitsInSignedBytes(int $val, int $byteSize): bool
+    {
         switch ($byteSize) {
-            case 1: return $val >= -128 && $val <= 127;
-            case 2: return $val >= -32768 && $val <= 32767;
-            case 4: return $val >= -2147483648 && $val <= 2147483647;
-            case 8: return true; default: return false;
+            case 1:
+                return $val >= -128 && $val <= 127;
+            case 2:
+                return $val >= -32768 && $val <= 32767;
+            case 4:
+                return $val >= -2147483648 && $val <= 2147483647;
+            case 8:
+                return true;
+            default:
+                return false;
         }
     }
 
-    private static function fitsInUnsignedBytes(int $val, int $byteSize): bool {
+    private static function fitsInUnsignedBytes(int $val, int $byteSize): bool
+    {
         switch ($byteSize) {
-            case 1: return $val <= 255; case 2: return $val <= 65535;
-            case 4: return $val <= 4294967295; case 8: return true;
-            default: return false;
+            case 1:
+                return $val <= 255;
+            case 2:
+                return $val <= 65535;
+            case 4:
+                return $val <= 4294967295;
+            case 8:
+                return true;
+            default:
+                return false;
         }
     }
 
-    protected function doEmit($ec): void { $cval = $this->evalConstant($ec); $ec->emit(OpCode::LoadConstant, $cval); }
-    public function __toString(): string { return (string)$this->Value; }
+    protected function doEmit($ec): void
+    {
+        $cval = $this->evalConstant($ec);
+        $ec->emit(OpCode::LoadConstant, $cval);
+    }
 
-    public function evalConstant($ec) {
+    public function __toString(): string
+    {
+        return (string)$this->Value;
+    }
+
+    public function evalConstant($ec)
+    {
         $evalType = $this->getEvaluatedCType($ec);
         if ($evalType instanceof CIntType) {
             $size = $evalType->getByteSize($ec);
@@ -574,6 +724,7 @@ class ConstantExpression extends Expression
         else throw new \RuntimeException("Non-basic constants with type '" . $this->ConstantType . "'");
     }
 }
+
 ConstantExpression::$Zero = new ConstantExpression(0);
 ConstantExpression::$One = new ConstantExpression(1);
 ConstantExpression::$NegativeOne = new ConstantExpression(-1);
@@ -584,26 +735,30 @@ class VariableExpression extends Expression
 {
     public $VariableName;
 
-    public function __construct(string $val, ?Location $loc = null, ?Location $endLoc = null) {
+    public function __construct(string $val, ?Location $loc = null, ?Location $endLoc = null)
+    {
         $this->VariableName = $val;
         $this->Location = $loc ?? Location::$Null;
         $this->EndLocation = $endLoc ?? Location::$Null;
     }
 
-    public static function emitLoadReferenceSlot($ec, $variable): void {
+    public static function emitLoadReferenceSlot($ec, $variable): void
+    {
         if ($variable->Scope === VariableScope::Arg) $ec->emit(OpCode::LoadArg, $variable->Address);
         elseif ($variable->Scope === VariableScope::Local) $ec->emit(OpCode::LoadLocal, $variable->Address);
         elseif ($variable->Scope === VariableScope::Global) $ec->emit(OpCode::LoadGlobal, $variable->Address);
         else throw new \RuntimeException("Cannot access reference variable scope '" . $variable->Scope . "'");
     }
 
-    public function getEvaluatedCType($ec): CType {
+    public function getEvaluatedCType($ec): CType
+    {
         $type = $ec->resolveVariable($this, null)->VariableType;
         if ($type instanceof CReferenceType) return $type->InnerType;
         return $type;
     }
 
-    protected function doEmit($ec): void {
+    protected function doEmit($ec): void
+    {
         $variable = $ec->resolveVariable($this, null);
         if ($variable !== null) {
             if ($variable->Scope === VariableScope::Function_) {
@@ -630,21 +785,27 @@ class VariableExpression extends Expression
                 } elseif ($vt instanceof CArrayType) {
                     if ($variable->Scope === VariableScope::Arg) {
                         $ec->emit(OpCode::LoadConstant, Value::pointer($variable->Address));
-                        $ec->emit(OpCode::LoadFramePointer); $ec->emit(OpCode::OffsetPointer);
+                        $ec->emit(OpCode::LoadFramePointer);
+                        $ec->emit(OpCode::OffsetPointer);
                     } elseif ($variable->Scope === VariableScope::Global) {
                         $ec->emit(OpCode::LoadConstant, Value::pointer($variable->Address));
                     } elseif ($variable->Scope === VariableScope::Local) {
                         $ec->emit(OpCode::LoadConstant, Value::pointer($variable->Address));
-                        $ec->emit(OpCode::LoadFramePointer); $ec->emit(OpCode::OffsetPointer);
+                        $ec->emit(OpCode::LoadFramePointer);
+                        $ec->emit(OpCode::OffsetPointer);
                     } else throw new \RuntimeException("Cannot evaluate array variable scope '" . $variable->Scope . "'");
                 } else throw new \RuntimeException("Cannot evaluate variable type '" . $vt . "'");
             }
         } else $ec->emit(OpCode::LoadConstant, 0);
     }
 
-    public function getCanEmitPointer(): bool { return true; }
+    public function getCanEmitPointer(): bool
+    {
+        return true;
+    }
 
-    protected function doEmitPointer($ec): void {
+    protected function doEmitPointer($ec): void
+    {
         $res = $ec->resolveVariable($this, null);
         if ($res !== null) {
             if ($res->VariableType instanceof CReferenceType) self::emitLoadReferenceSlot($ec, $res);
@@ -652,9 +813,13 @@ class VariableExpression extends Expression
         } else $ec->emit(OpCode::LoadConstant, 0);
     }
 
-    public function __toString(): string { return $this->VariableName; }
+    public function __toString(): string
+    {
+        return $this->VariableName;
+    }
 
-    public function evalConstant($ec) {
+    public function evalConstant($ec)
+    {
         $res = $ec->resolveVariable($this, null);
         if ($res !== null && $res->Scope === VariableScope::Constant) return $res->Constant;
         return parent::evalConstant($ec);
@@ -664,9 +829,6 @@ class VariableExpression extends Expression
 //============================================================================
 // Block (compound statement)
 //============================================================================
-use parse\Interpreter\CompiledVariable;
-use parse\Interpreter\CompiledFunction;
-use parse\Compiler\BlockContext;
 
 class Block extends Statement
 {
@@ -680,33 +842,45 @@ class Block extends Statement
     public $Structures = [];
     public $Enums = [];
 
-    public function __construct(int $variableScope, ?array $statements = null) {
+    public function __construct(int $variableScope, ?array $statements = null)
+    {
         $this->VariableScope = $variableScope;
         if ($statements !== null) $this->addStatements($statements);
     }
 
-    public function getAlwaysReturns(): bool {
-        foreach ($this->Statements as $s) { if ($s->getAlwaysReturns()) return true; }
+    public function getAlwaysReturns(): bool
+    {
+        foreach ($this->Statements as $s) {
+            if ($s->getAlwaysReturns()) return true;
+        }
         return false;
     }
 
-    public function __toString(): string {
-        $stmtParts = []; foreach ($this->Statements as $s) $stmtParts[] = (string)$s;
+    public function __toString(): string
+    {
+        $stmtParts = [];
+        foreach ($this->Statements as $s) $stmtParts[] = (string)$s;
         if (count($this->InitStatements) > 0) {
-            $initParts = []; foreach ($this->InitStatements as $s) $initParts[] = (string)$s;
+            $initParts = [];
+            foreach ($this->InitStatements as $s) $initParts[] = (string)$s;
             return "{[" . implode("; ", $initParts) . "] " . implode("; ", $stmtParts) . "}";
         }
         return "{" . implode("; ", $stmtParts) . "}";
     }
 
-    public function addStatement(?Statement $stmt): void {
+    public function addStatement(?Statement $stmt): void
+    {
         if ($stmt !== null) $this->Statements[] = $stmt;
         if ($stmt instanceof Block) $stmt->Parent = $this;
     }
 
-    public function addStatements(array $stmts): void { foreach ($stmts as $s) $this->addStatement($s); }
+    public function addStatements(array $stmts): void
+    {
+        foreach ($stmts as $s) $this->addStatement($s);
+    }
 
-    protected function doEmit($ec): void {
+    protected function doEmit($ec): void
+    {
         $ec->beginBlock($this);
         foreach ($this->Variables as $v) {
             if ($v->VariableType instanceof CStructType && $v->VariableType->IsPolymorphic && $v->VariableType->VTableGlobalAddress !== null) {
@@ -721,11 +895,13 @@ class Block extends Statement
         $ec->endBlock();
     }
 
-    public function addVariable(string $name, CType $ctype): void {
+    public function addVariable(string $name, CType $ctype): void
+    {
         $this->Variables[] = new CompiledVariable($name, 0, $ctype);
     }
 
-    public function addDeclarationToBlock($context): void {
+    public function addDeclarationToBlock($context): void
+    {
         $subContext = new BlockContext($this, $context);
         foreach ($this->Statements as $s) $s->addDeclarationToBlock($subContext);
     }
@@ -738,13 +914,17 @@ class TranslationUnit extends Block
 {
     public $Name;
 
-    public function __construct(string $name) {
+    public function __construct(string $name)
+    {
         parent::__construct(VariableScope::Global);
         if (trim($name) === '') throw new \InvalidArgumentException("Translation unit name must be specified");
         $this->Name = $name;
     }
 
-    public function __toString(): string { return $this->Name; }
+    public function __toString(): string
+    {
+        return $this->Name;
+    }
 }
 
 //============================================================================
@@ -752,23 +932,31 @@ class TranslationUnit extends Block
 //============================================================================
 class BinaryExpression extends Expression
 {
-    public $Left; public $Op; public $Right;
+    public $Left;
+    public $Op;
+    public $Right;
 
-    public function __construct($left, int $op, $right) {
+    public function __construct($left, int $op, $right)
+    {
         if ($left === null) throw new \InvalidArgumentException("left");
         if ($right === null) throw new \InvalidArgumentException("right");
-        $this->Left = $left; $this->Op = $op; $this->Right = $right;
+        $this->Left = $left;
+        $this->Op = $op;
+        $this->Right = $right;
     }
 
-    protected function doEmit($ec): void {
+    protected function doEmit($ec): void
+    {
         $leftType = $this->Left->getEvaluatedCType($ec);
         $rightType = $this->Right->getEvaluatedCType($ec);
         if (self::tryEmitBinaryOperatorCall($ec, $leftType, $rightType, $this->Left, $this->Right, self::binopToOperatorName($this->Op))) return;
 
         if ($this->Op === Binop::ShiftLeft || $this->Op === Binop::ShiftRight) {
             $promotedLeft = self::getShiftPromotedType($leftType, $ec);
-            $this->Left->emit($ec); $ec->emitCast($leftType, $promotedLeft);
-            $this->Right->emit($ec); $ec->emitCast($rightType, $promotedLeft);
+            $this->Left->emit($ec);
+            $ec->emitCast($leftType, $promotedLeft);
+            $this->Right->emit($ec);
+            $ec->emitCast($rightType, $promotedLeft);
             $shiftOff = $ec->getInstructionOffset($promotedLeft);
             if ($this->Op === Binop::ShiftLeft) $ec->emit(OpCode::shiftLeftInt8() + $shiftOff);
             else $ec->emit(OpCode::shiftRightInt8() + $shiftOff);
@@ -776,34 +964,71 @@ class BinaryExpression extends Expression
         }
 
         $aType = self::getArithmeticType($this->Left, $this->Right, $this->getOpString(), $ec);
-        $this->Left->emit($ec); $ec->emitCast($leftType, $aType);
-        $this->Right->emit($ec); $ec->emitCast($rightType, $aType);
+        $this->Left->emit($ec);
+        $ec->emitCast($leftType, $aType);
+        $this->Right->emit($ec);
+        $ec->emitCast($rightType, $aType);
         $ioff = $ec->getInstructionOffset($aType);
         switch ($this->Op) {
-            case Binop::Add: $ec->emit(OpCode::addInt8() + $ioff); break;
-            case Binop::Subtract: $ec->emit(OpCode::subtractInt8() + $ioff); break;
-            case Binop::Multiply: $ec->emit(OpCode::multiplyInt8() + $ioff); break;
-            case Binop::Divide: $ec->emit(OpCode::divideInt8() + $ioff); break;
-            case Binop::Mod: $ec->emit(OpCode::moduloInt8() + $ioff); break;
-            case Binop::BinaryAnd: $ec->emit(OpCode::binaryAndInt8() + $ioff); break;
-            case Binop::BinaryOr: $ec->emit(OpCode::binaryOrInt8() + $ioff); break;
-            case Binop::BinaryXor: $ec->emit(OpCode::binaryXorInt8() + $ioff); break;
-            default: throw new \RuntimeException("Unsupported binary operator '" . $this->Op . "'");
+            case Binop::Add:
+                $ec->emit(OpCode::addInt8() + $ioff);
+                break;
+            case Binop::Subtract:
+                $ec->emit(OpCode::subtractInt8() + $ioff);
+                break;
+            case Binop::Multiply:
+                $ec->emit(OpCode::multiplyInt8() + $ioff);
+                break;
+            case Binop::Divide:
+                $ec->emit(OpCode::divideInt8() + $ioff);
+                break;
+            case Binop::Mod:
+                $ec->emit(OpCode::moduloInt8() + $ioff);
+                break;
+            case Binop::BinaryAnd:
+                $ec->emit(OpCode::binaryAndInt8() + $ioff);
+                break;
+            case Binop::BinaryOr:
+                $ec->emit(OpCode::binaryOrInt8() + $ioff);
+                break;
+            case Binop::BinaryXor:
+                $ec->emit(OpCode::binaryXorInt8() + $ioff);
+                break;
+            default:
+                throw new \RuntimeException("Unsupported binary operator '" . $this->Op . "'");
         }
     }
 
-    private function getOpString(): string {
+    private function getOpString(): string
+    {
         switch ($this->Op) {
-            case Binop::Add: return "Add"; case Binop::Subtract: return "Subtract";
-            case Binop::Multiply: return "Multiply"; case Binop::Divide: return "Divide";
-            case Binop::Mod: return "Mod"; case Binop::ShiftLeft: return "ShiftLeft";
-            case Binop::ShiftRight: return "ShiftRight"; case Binop::BinaryAnd: return "BinaryAnd";
-            case Binop::BinaryOr: return "BinaryOr"; case Binop::BinaryXor: return "BinaryXor";
-            default: return "Unknown";
+            case Binop::Add:
+                return "Add";
+            case Binop::Subtract:
+                return "Subtract";
+            case Binop::Multiply:
+                return "Multiply";
+            case Binop::Divide:
+                return "Divide";
+            case Binop::Mod:
+                return "Mod";
+            case Binop::ShiftLeft:
+                return "ShiftLeft";
+            case Binop::ShiftRight:
+                return "ShiftRight";
+            case Binop::BinaryAnd:
+                return "BinaryAnd";
+            case Binop::BinaryOr:
+                return "BinaryOr";
+            case Binop::BinaryXor:
+                return "BinaryXor";
+            default:
+                return "Unknown";
         }
     }
 
-    public function getEvaluatedCType($ec): CType {
+    public function getEvaluatedCType($ec): CType
+    {
         $leftType = $this->Left->getEvaluatedCType($ec);
         $rightType = $this->Right->getEvaluatedCType($ec);
         $ft = self::tryResolveBinaryOperatorType($ec, $leftType, $rightType, self::binopToOperatorName($this->Op));
@@ -812,26 +1037,47 @@ class BinaryExpression extends Expression
         return self::getArithmeticType($this->Left, $this->Right, $this->getOpString(), $ec);
     }
 
-    private static function getShiftPromotedType(CType $type, $ec): CType {
+    private static function getShiftPromotedType(CType $type, $ec): CType
+    {
         if ($type instanceof CBasicType) return $type->integerPromote($ec);
         return $type;
     }
 
-    public function __toString(): string { return "(" . $this->Left . " " . $this->Op . " " . $this->Right . ")"; }
+    public function __toString(): string
+    {
+        return "(" . $this->Left . " " . $this->Op . " " . $this->Right . ")";
+    }
 
-    public function evalConstant($ec) {
+    public function evalConstant($ec)
+    {
         $leftType = $this->Left->getEvaluatedCType($ec);
         $rightType = $this->Right->getEvaluatedCType($ec);
         if ($leftType->getIsIntegral() && $rightType->getIsIntegral()) {
             $left = (int)$this->Left->evalConstant($ec);
             $right = (int)$this->Right->evalConstant($ec);
             switch ($this->Op) {
-                case Binop::Add: return $left + $right; case Binop::Subtract: return $left - $right;
-                case Binop::Multiply: return $left * $right; case Binop::Divide: return intdiv($left, $right);
-                case Binop::Mod: return $left % $right; case Binop::BinaryAnd: return $left & $right;
-                case Binop::BinaryOr: return $left | $right; case Binop::BinaryXor: return $left ^ $right;
-                case Binop::ShiftLeft: return $left << $right; case Binop::ShiftRight: return $left >> $right;
-                default: throw new \RuntimeException("Unsupported binary operator '" . $this->Op . "'");
+                case Binop::Add:
+                    return $left + $right;
+                case Binop::Subtract:
+                    return $left - $right;
+                case Binop::Multiply:
+                    return $left * $right;
+                case Binop::Divide:
+                    return intdiv($left, $right);
+                case Binop::Mod:
+                    return $left % $right;
+                case Binop::BinaryAnd:
+                    return $left & $right;
+                case Binop::BinaryOr:
+                    return $left | $right;
+                case Binop::BinaryXor:
+                    return $left ^ $right;
+                case Binop::ShiftLeft:
+                    return $left << $right;
+                case Binop::ShiftRight:
+                    return $left >> $right;
+                default:
+                    throw new \RuntimeException("Unsupported binary operator '" . $this->Op . "'");
             }
         }
         return parent::evalConstant($ec);
@@ -843,28 +1089,49 @@ class BinaryExpression extends Expression
 //============================================================================
 class UnaryExpression extends Expression
 {
-    public $Op; public $Right;
+    public $Op;
+    public $Right;
 
-    public function __construct(int $op, $right) { $this->Op = $op; $this->Right = $right; }
+    public function __construct(int $op, $right)
+    {
+        $this->Op = $op;
+        $this->Right = $right;
+    }
 
-    public function getEvaluatedCType($ec): CType {
+    public function getEvaluatedCType($ec): CType
+    {
         $rightType = $this->Right->getEvaluatedCType($ec);
         $ft = self::tryResolveUnaryOperatorType($ec, $rightType, self::unopToOperatorName($this->Op));
         if ($ft !== null) return $ft->ReturnType;
-        return ($this->Op === Unop::Not) ? CBasicType::$signedInt : self::getPromotedType($this->Right, $this->getOpString(), $ec);
+        return ($this->Op === Unop::Not) ? CBasicType::$SignedInt : self::getPromotedType($this->Right, $this->getOpString(), $ec);
     }
 
-    private function getOpString(): string {
+    private function getOpString(): string
+    {
         switch ($this->Op) {
-            case Unop::None: return "None"; case Unop::Not: return "Not";
-            case Unop::Negate: return "Negate"; case Unop::BinaryComplement: return "BinaryComplement";
-            case Unop::PreIncrement: return "PreIncrement"; case Unop::PreDecrement: return "PreDecrement";
-            case Unop::PostIncrement: return "PostIncrement"; case Unop::PostDecrement: return "PostDecrement";
-            default: return "Unknown";
+            case Unop::None:
+                return "None";
+            case Unop::Not:
+                return "Not";
+            case Unop::Negate:
+                return "Negate";
+            case Unop::BinaryComplement:
+                return "BinaryComplement";
+            case Unop::PreIncrement:
+                return "PreIncrement";
+            case Unop::PreDecrement:
+                return "PreDecrement";
+            case Unop::PostIncrement:
+                return "PostIncrement";
+            case Unop::PostDecrement:
+                return "PostDecrement";
+            default:
+                return "Unknown";
         }
     }
 
-    protected function doEmit($ec): void {
+    protected function doEmit($ec): void
+    {
         $rightType = $this->Right->getEvaluatedCType($ec);
         $opName = self::unopToOperatorName($this->Op);
         if ($opName !== null && self::tryEmitUnaryOperatorCall($ec, $rightType, $this->Right, $opName)) return;
@@ -891,28 +1158,53 @@ class UnaryExpression extends Expression
                 $ec->emitCast($this->Right->getEvaluatedCType($ec), $aType);
                 $ioff = $ec->getInstructionOffset($aType);
                 switch ($this->Op) {
-                    case Unop::None: break;
-                    case Unop::Negate: $ec->emit(OpCode::negateInt8() + $ioff); break;
-                    case Unop::Not: $ec->emit(OpCode::notInt8() + $ioff); break;
-                    case Unop::BinaryComplement: $ec->emit(OpCode::binaryNotInt8() + $ioff); break;
-                    default: throw new \RuntimeException("Unsupported unary operator '" . $this->Op . "'");
+                    case Unop::None:
+                        break;
+                    case Unop::Negate:
+                        $ec->emit(OpCode::negateInt8() + $ioff);
+                        break;
+                    case Unop::Not:
+                        $ec->emit(OpCode::notInt8() + $ioff);
+                        break;
+                    case Unop::BinaryComplement:
+                        $ec->emit(OpCode::binaryNotInt8() + $ioff);
+                        break;
+                    default:
+                        throw new \RuntimeException("Unsupported unary operator '" . $this->Op . "'");
                 }
                 break;
         }
     }
 
-    public function __toString(): string { return "(" . $this->Op . " " . $this->Right . ")"; }
+    public function __toString(): string
+    {
+        return "(" . $this->Op . " " . $this->Right . ")";
+    }
 
-    public function evalConstant($ec) {
+    public function evalConstant($ec)
+    {
         $rightType = $this->Right->getEvaluatedCType($ec);
         if ($rightType->getIsIntegral()) {
             $right = (int)$this->Right->evalConstant($ec);
             switch ($this->Op) {
-                case Unop::None: return $right; case Unop::Not: return ($right === 0) ? 1 : 0;
-                case Unop::Negate: return -$right; case Unop::BinaryComplement: return ~$right;
-                case Unop::PreIncrement: return $right + 1; case Unop::PreDecrement: return $right - 1;
-                case Unop::PostIncrement: return $right; case Unop::PostDecrement: return $right;
-                default: throw new \RuntimeException("Unsupported unary operator '" . $this->Op . "'");
+                case Unop::None:
+                    return $right;
+                case Unop::Not:
+                    return ($right === 0) ? 1 : 0;
+                case Unop::Negate:
+                    return -$right;
+                case Unop::BinaryComplement:
+                    return ~$right;
+                case Unop::PreIncrement:
+                    return $right + 1;
+                case Unop::PreDecrement:
+                    return $right - 1;
+                case Unop::PostIncrement:
+                    return $right;
+                case Unop::PostDecrement:
+                    return $right;
+                default:
+                    throw new \RuntimeException("Unsupported unary operator '" . $this->Op . "'");
             }
         }
         return parent::evalConstant($ec);
@@ -924,14 +1216,22 @@ class UnaryExpression extends Expression
 //============================================================================
 class CastExpression extends Expression
 {
-    public $TypeName; public $InnerExpression;
+    public $TypeName;
+    public $InnerExpression;
 
-    public function __construct(TypeName $typeName, $innerExpression) {
-        $this->TypeName = $typeName; $this->InnerExpression = $innerExpression;
+    public function __construct(TypeName $typeName, $innerExpression)
+    {
+        $this->TypeName = $typeName;
+        $this->InnerExpression = $innerExpression;
     }
 
-    public function getEvaluatedCType($ec): CType { return $ec->resolveTypeName($this->TypeName) ?? CBasicType::$signedInt; }
-    protected function doEmit($ec): void {
+    public function getEvaluatedCType($ec): CType
+    {
+        return $ec->resolveTypeName($this->TypeName) ?? CBasicType::$SignedInt;
+    }
+
+    protected function doEmit($ec): void
+    {
         $rtype = $this->getEvaluatedCType($ec);
         $itype = $this->InnerExpression->getEvaluatedCType($ec);
         $this->InnerExpression->emit($ec);
@@ -946,9 +1246,20 @@ class AddressOfExpression extends Expression
 {
     public $InnerExpression;
 
-    public function __construct($innerExpression) { $this->InnerExpression = $innerExpression; }
-    public function getEvaluatedCType($ec): CType { return $this->InnerExpression->getEvaluatedCType($ec)->getPointer(); }
-    protected function doEmit($ec): void { $this->InnerExpression->emitPointer($ec); }
+    public function __construct($innerExpression)
+    {
+        $this->InnerExpression = $innerExpression;
+    }
+
+    public function getEvaluatedCType($ec): CType
+    {
+        return $this->InnerExpression->getEvaluatedCType($ec)->getPointer();
+    }
+
+    protected function doEmit($ec): void
+    {
+        $this->InnerExpression->emitPointer($ec);
+    }
 }
 
 //============================================================================
@@ -958,18 +1269,34 @@ class DereferenceExpression extends Expression
 {
     public $InnerExpression;
 
-    public function __construct($innerExpression) { $this->InnerExpression = $innerExpression; }
+    public function __construct($innerExpression)
+    {
+        $this->InnerExpression = $innerExpression;
+    }
 
-    public function getEvaluatedCType($ec): CType {
+    public function getEvaluatedCType($ec): CType
+    {
         $it = $this->InnerExpression->getEvaluatedCType($ec);
         if ($it instanceof CPointerType) return $it->InnerType;
         $ec->Report->error(0, "Cannot dereference values of type `" . $it . "`.");
-        return CBasicType::$signedInt;
+        return CBasicType::$SignedInt;
     }
 
-    protected function doEmit($ec): void { $this->InnerExpression->emit($ec); $ec->emit(OpCode::LoadPointer); }
-    public function getCanEmitPointer(): bool { return true; }
-    protected function doEmitPointer($ec): void { $this->InnerExpression->emit($ec); }
+    protected function doEmit($ec): void
+    {
+        $this->InnerExpression->emit($ec);
+        $ec->emit(OpCode::LoadPointer);
+    }
+
+    public function getCanEmitPointer(): bool
+    {
+        return true;
+    }
+
+    protected function doEmitPointer($ec): void
+    {
+        $this->InnerExpression->emit($ec);
+    }
 }
 
 //============================================================================
@@ -977,11 +1304,17 @@ class DereferenceExpression extends Expression
 //============================================================================
 class ArrayElementExpression extends Expression
 {
-    public $Array; public $ElementIndex;
+    public $Array;
+    public $ElementIndex;
 
-    public function __construct($array, $elementIndex) { $this->Array = $array; $this->ElementIndex = $elementIndex; }
+    public function __construct($array, $elementIndex)
+    {
+        $this->Array = $array;
+        $this->ElementIndex = $elementIndex;
+    }
 
-    public function getEvaluatedCType($ec): CType {
+    public function getEvaluatedCType($ec): CType
+    {
         $t = $this->Array->getEvaluatedCType($ec);
         if ($t instanceof CArrayType) return $t->ElementType;
         elseif ($t instanceof CPointerType) return $t->InnerType;
@@ -997,25 +1330,37 @@ class ArrayElementExpression extends Expression
         }
     }
 
-    protected function doEmit($ec): void {
+    protected function doEmit($ec): void
+    {
         $t = $this->Array->getEvaluatedCType($ec);
         if ($t instanceof CStructType) {
             $indexType = $this->ElementIndex->getEvaluatedCType($ec);
             if (self::tryEmitBinaryOperatorCall($ec, $t, $indexType, $this->Array, $this->ElementIndex, "operator[]")) return;
-            $ec->Report->error(601, "Left hand side of [ must be an array or pointer"); return;
+            $ec->Report->error(601, "Left hand side of [ must be an array or pointer");
+            return;
         }
         $this->doEmitPointer($ec);
         $evalType = $this->getEvaluatedCType($ec);
         if (!($evalType instanceof CArrayType)) $ec->emit(OpCode::LoadPointer);
     }
 
-    public function __toString(): string { return $this->Array . "[" . $this->ElementIndex . "]"; }
-    public function getCanEmitPointer(): bool { return $this->Array->getCanEmitPointer(); }
+    public function __toString(): string
+    {
+        return $this->Array . "[" . $this->ElementIndex . "]";
+    }
 
-    protected function doEmitPointer($ec): void {
-        $this->Array->emit($ec); $this->ElementIndex->emit($ec);
+    public function getCanEmitPointer(): bool
+    {
+        return $this->Array->getCanEmitPointer();
+    }
+
+    protected function doEmitPointer($ec): void
+    {
+        $this->Array->emit($ec);
+        $this->ElementIndex->emit($ec);
         $ec->emit(OpCode::LoadConstant, $this->getEvaluatedCType($ec)->getNumValues());
-        $ec->emit(OpCode::MultiplyInt32); $ec->emit(OpCode::OffsetPointer);
+        $ec->emit(OpCode::MultiplyInt32);
+        $ec->emit(OpCode::OffsetPointer);
     }
 }
 
@@ -1024,18 +1369,31 @@ class ArrayElementExpression extends Expression
 //============================================================================
 class AssignExpression extends Expression
 {
-    public $Left; public $Right;
+    public $Left;
+    public $Right;
 
-    public function __construct($left, $right) { $this->Left = $left; $this->Right = $right; }
-    public function getEvaluatedCType($ec): CType { return $this->Left->getEvaluatedCType($ec); }
-
-    private function doEmitStructureAssignment($sexpr, $ec): void {
-        $type = $this->getEvaluatedCType($ec);
-        if ($type instanceof CArrayType) { $this->emitArrayStructuredInit($sexpr, $type, 0, $ec); $this->Left->emitPointer($ec); }
-        else throw new \RuntimeException("Structured assignment of '" . $this->getEvaluatedCType($ec) . "' not supported");
+    public function __construct($left, $right)
+    {
+        $this->Left = $left;
+        $this->Right = $right;
     }
 
-    private function emitArrayStructuredInit($sexpr, CArrayType $arrayType, int $baseOffset, $ec): void {
+    public function getEvaluatedCType($ec): CType
+    {
+        return $this->Left->getEvaluatedCType($ec);
+    }
+
+    private function doEmitStructureAssignment($sexpr, $ec): void
+    {
+        $type = $this->getEvaluatedCType($ec);
+        if ($type instanceof CArrayType) {
+            $this->emitArrayStructuredInit($sexpr, $type, 0, $ec);
+            $this->Left->emitPointer($ec);
+        } else throw new \RuntimeException("Structured assignment of '" . $this->getEvaluatedCType($ec) . "' not supported");
+    }
+
+    private function emitArrayStructuredInit($sexpr, CArrayType $arrayType, int $baseOffset, $ec): void
+    {
         $elementType = $arrayType->ElementType;
         $numItemValues = $elementType->getNumValues();
         $count = count($sexpr->Items);
@@ -1049,13 +1407,18 @@ class AssignExpression extends Expression
                 $ec->emitCast($item->Expression->getEvaluatedCType($ec), $elementType);
                 $this->Left->emitPointer($ec);
                 $ec->emit(OpCode::LoadConstant, $itemOffset);
-                $ec->emit(OpCode::OffsetPointer); $ec->emit(OpCode::StorePointer);
+                $ec->emit(OpCode::OffsetPointer);
+                $ec->emit(OpCode::StorePointer);
             }
         }
     }
 
-    protected function doEmit($ec): void {
-        if ($this->Right instanceof StructureExpression) { $this->doEmitStructureAssignment($this->Right, $ec); return; }
+    protected function doEmit($ec): void
+    {
+        if ($this->Right instanceof StructureExpression) {
+            $this->doEmitStructureAssignment($this->Right, $ec);
+            return;
+        }
         $this->Right->emit($ec);
 
         if ($this->Left instanceof VariableExpression) {
@@ -1086,18 +1449,25 @@ class AssignExpression extends Expression
                 if ($v->Scope === VariableScope::Global) $ec->emit(OpCode::StoreGlobal, $v->Address);
                 elseif ($v->Scope === VariableScope::Local) $ec->emit(OpCode::StoreLocal, $v->Address);
                 elseif ($v->Scope === VariableScope::Arg) $ec->emit(OpCode::StoreArg, $v->Address);
-                elseif ($v->Scope === VariableScope::Function_) { $ec->emit(OpCode::Pop); $ec->Report->error(1656, "Cannot assign to `" . $this->Left->VariableName . "` because it is a function"); }
-                else throw new \RuntimeException("Assigning to scope '" . $v->Scope . "'");
+                elseif ($v->Scope === VariableScope::Function_) {
+                    $ec->emit(OpCode::Pop);
+                    $ec->Report->error(1656, "Cannot assign to `" . $this->Left->VariableName . "` because it is a function");
+                } else throw new \RuntimeException("Assigning to scope '" . $v->Scope . "'");
             }
         } elseif ($this->Left->getCanEmitPointer()) {
             $ec->emitCast($this->Right->getEvaluatedCType($ec), $this->Left->getEvaluatedCType($ec));
-            $ec->emit(OpCode::Dup); $this->Left->emitPointer($ec); $ec->emit(OpCode::StorePointer);
+            $ec->emit(OpCode::Dup);
+            $this->Left->emitPointer($ec);
+            $ec->emit(OpCode::StorePointer);
         } else {
             $ec->Report->error(131, "The left-hand side of an assignment must be a variable or an addressable memory location");
         }
     }
 
-    public function __toString(): string { return $this->Left . " = " . $this->Right; }
+    public function __toString(): string
+    {
+        return $this->Left . " = " . $this->Right;
+    }
 }
 
 //============================================================================
@@ -1105,16 +1475,26 @@ class AssignExpression extends Expression
 //============================================================================
 class ConditionalExpression extends Expression
 {
-    public $Condition; public $TrueValue; public $FalseValue;
+    public $Condition;
+    public $TrueValue;
+    public $FalseValue;
 
-    public function __construct($condition, $trueValue, $falseValue) {
-        $this->Condition = $condition; $this->TrueValue = $trueValue; $this->FalseValue = $falseValue;
+    public function __construct($condition, $trueValue, $falseValue)
+    {
+        $this->Condition = $condition;
+        $this->TrueValue = $trueValue;
+        $this->FalseValue = $falseValue;
     }
 
-    public function getEvaluatedCType($ec): CType { return $this->TrueValue->getEvaluatedCType($ec); }
+    public function getEvaluatedCType($ec): CType
+    {
+        return $this->TrueValue->getEvaluatedCType($ec);
+    }
 
-    protected function doEmit($ec): void {
-        $falseLabel = $ec->defineLabel(); $endLabel = $ec->defineLabel();
+    protected function doEmit($ec): void
+    {
+        $falseLabel = $ec->defineLabel();
+        $endLabel = $ec->defineLabel();
         $this->Condition->emit($ec);
         $ec->emitCastToBoolean($this->Condition->getEvaluatedCType($ec));
         $ec->emit(OpCode::BranchIfFalse, $falseLabel);
@@ -1131,12 +1511,21 @@ class ConditionalExpression extends Expression
 //============================================================================
 class LogicExpression extends Expression
 {
-    public $Left; public $Op; public $Right;
+    public $Left;
+    public $Op;
+    public $Right;
 
-    public function __construct($left, int $op, $right) { $this->Left = $left; $this->Op = $op; $this->Right = $right; }
+    public function __construct($left, int $op, $right)
+    {
+        $this->Left = $left;
+        $this->Op = $op;
+        $this->Right = $right;
+    }
 
-    protected function doEmit($ec): void {
-        $shortCircuitLabel = $ec->defineLabel(); $endLabel = $ec->defineLabel();
+    protected function doEmit($ec): void
+    {
+        $shortCircuitLabel = $ec->defineLabel();
+        $endLabel = $ec->defineLabel();
         $this->Left->emit($ec);
         $ec->emitCastToBoolean($this->Left->getEvaluatedCType($ec));
         if ($this->Op === LogicOp::And) $ec->emit(OpCode::BranchIfFalse, $shortCircuitLabel);
@@ -1154,8 +1543,15 @@ class LogicExpression extends Expression
         $ec->emitLabel($endLabel);
     }
 
-    public function getEvaluatedCType($ec): CType { return CBasicType::$bool; }
-    public function __toString(): string { return "(" . $this->Left . " " . $this->Op . " " . $this->Right . ")"; }
+    public function getEvaluatedCType($ec): CType
+    {
+        return CBasicType::$Bool;
+    }
+
+    public function __toString(): string
+    {
+        return "(" . $this->Left . " " . $this->Op . " " . $this->Right . ")";
+    }
 }
 
 //============================================================================
@@ -1163,66 +1559,115 @@ class LogicExpression extends Expression
 //============================================================================
 class RelationalExpression extends Expression
 {
-    public $Left; public $Op; public $Right;
+    public $Left;
+    public $Op;
+    public $Right;
 
-    public function __construct($left, int $op, $right) { $this->Left = $left; $this->Op = $op; $this->Right = $right; }
+    public function __construct($left, int $op, $right)
+    {
+        $this->Left = $left;
+        $this->Op = $op;
+        $this->Right = $right;
+    }
 
-    private function getOpString(): string {
+    private function getOpString(): string
+    {
         switch ($this->Op) {
-            case RelationalOp::Equals: return "Equals"; case RelationalOp::NotEquals: return "NotEquals";
-            case RelationalOp::LessThan: return "LessThan"; case RelationalOp::LessThanOrEqual: return "LessThanOrEqual";
-            case RelationalOp::GreaterThan: return "GreaterThan"; case RelationalOp::GreaterThanOrEqual: return "GreaterThanOrEqual";
-            default: return "Unknown";
+            case RelationalOp::Equals:
+                return "Equals";
+            case RelationalOp::NotEquals:
+                return "NotEquals";
+            case RelationalOp::LessThan:
+                return "LessThan";
+            case RelationalOp::LessThanOrEqual:
+                return "LessThanOrEqual";
+            case RelationalOp::GreaterThan:
+                return "GreaterThan";
+            case RelationalOp::GreaterThanOrEqual:
+                return "GreaterThanOrEqual";
+            default:
+                return "Unknown";
         }
     }
 
-    protected function doEmit($ec): void {
+    protected function doEmit($ec): void
+    {
         $leftType = $this->Left->getEvaluatedCType($ec);
         $rightType = $this->Right->getEvaluatedCType($ec);
         if (self::tryEmitBinaryOperatorCall($ec, $leftType, $rightType, $this->Left, $this->Right, self::relOpToOperatorName($this->Op))) return;
         $aType = self::getArithmeticType($this->Left, $this->Right, $this->getOpString(), $ec);
-        $this->Left->emit($ec); $ec->emitCast($leftType, $aType);
-        $this->Right->emit($ec); $ec->emitCast($rightType, $aType);
+        $this->Left->emit($ec);
+        $ec->emitCast($leftType, $aType);
+        $this->Right->emit($ec);
+        $ec->emitCast($rightType, $aType);
         $ioff = $ec->getInstructionOffset($aType);
         switch ($this->Op) {
-            case RelationalOp::Equals: $ec->emit(OpCode::equalToInt8() + $ioff); break;
-            case RelationalOp::NotEquals: $ec->emit(OpCode::equalToInt8() + $ioff); $ec->emit(OpCode::notInt8() + 0); break;
-            case RelationalOp::LessThan: $ec->emit(OpCode::lessThanInt8() + $ioff); break;
-            case RelationalOp::LessThanOrEqual: $ec->emit(OpCode::greaterThanInt8() + $ioff); $ec->emit(OpCode::notInt8() + 0); break;
-            case RelationalOp::GreaterThan: $ec->emit(OpCode::greaterThanInt8() + $ioff); break;
-            case RelationalOp::GreaterThanOrEqual: $ec->emit(OpCode::lessThanInt8() + $ioff); $ec->emit(OpCode::notInt8() + 0); break;
-            default: throw new \RuntimeException("Unsupported relational operator '" . $this->Op . "'");
+            case RelationalOp::Equals:
+                $ec->emit(OpCode::equalToInt8() + $ioff);
+                break;
+            case RelationalOp::NotEquals:
+                $ec->emit(OpCode::equalToInt8() + $ioff);
+                $ec->emit(OpCode::notInt8() + 0);
+                break;
+            case RelationalOp::LessThan:
+                $ec->emit(OpCode::lessThanInt8() + $ioff);
+                break;
+            case RelationalOp::LessThanOrEqual:
+                $ec->emit(OpCode::greaterThanInt8() + $ioff);
+                $ec->emit(OpCode::notInt8() + 0);
+                break;
+            case RelationalOp::GreaterThan:
+                $ec->emit(OpCode::greaterThanInt8() + $ioff);
+                break;
+            case RelationalOp::GreaterThanOrEqual:
+                $ec->emit(OpCode::lessThanInt8() + $ioff);
+                $ec->emit(OpCode::notInt8() + 0);
+                break;
+            default:
+                throw new \RuntimeException("Unsupported relational operator '" . $this->Op . "'");
         }
     }
 
-    public function evalConstant($ec) {
+    public function evalConstant($ec)
+    {
         $leftType = $this->Left->getEvaluatedCType($ec);
         $rightType = $this->Right->getEvaluatedCType($ec);
         if ($leftType->getIsIntegral() && $rightType->getIsIntegral()) {
             $left = (int)$this->Left->evalConstant($ec);
             $right = (int)$this->Right->evalConstant($ec);
             switch ($this->Op) {
-                case RelationalOp::Equals: return $left === $right ? 1 : 0;
-                case RelationalOp::NotEquals: return $left !== $right ? 1 : 0;
-                case RelationalOp::LessThan: return $left < $right ? 1 : 0;
-                case RelationalOp::LessThanOrEqual: return $left <= $right ? 1 : 0;
-                case RelationalOp::GreaterThan: return $left > $right ? 1 : 0;
-                case RelationalOp::GreaterThanOrEqual: return $left >= $right ? 1 : 0;
-                default: throw new \RuntimeException("Unsupported relational operator '" . $this->Op . "'");
+                case RelationalOp::Equals:
+                    return $left === $right ? 1 : 0;
+                case RelationalOp::NotEquals:
+                    return $left !== $right ? 1 : 0;
+                case RelationalOp::LessThan:
+                    return $left < $right ? 1 : 0;
+                case RelationalOp::LessThanOrEqual:
+                    return $left <= $right ? 1 : 0;
+                case RelationalOp::GreaterThan:
+                    return $left > $right ? 1 : 0;
+                case RelationalOp::GreaterThanOrEqual:
+                    return $left >= $right ? 1 : 0;
+                default:
+                    throw new \RuntimeException("Unsupported relational operator '" . $this->Op . "'");
             }
         }
         return parent::evalConstant($ec);
     }
 
-    public function getEvaluatedCType($ec): CType {
+    public function getEvaluatedCType($ec): CType
+    {
         $leftType = $this->Left->getEvaluatedCType($ec);
         $rightType = $this->Right->getEvaluatedCType($ec);
         $ft = self::tryResolveBinaryOperatorType($ec, $leftType, $rightType, self::relOpToOperatorName($this->Op));
         if ($ft !== null) return $ft->ReturnType;
-        return CBasicType::$bool;
+        return CBasicType::$Bool;
     }
 
-    public function __toString(): string { return "(" . $this->Left . " " . $this->Op . " " . $this->Right . ")"; }
+    public function __toString(): string
+    {
+        return "(" . $this->Left . " " . $this->Op . " " . $this->Right . ")";
+    }
 }
 
 //============================================================================
@@ -1230,24 +1675,41 @@ class RelationalExpression extends Expression
 //============================================================================
 class MemberFromReferenceExpression extends Expression
 {
-    public $Left; public $MemberName;
+    public $Left;
+    public $MemberName;
 
-    public function __construct($left, string $memberName) { $this->Left = $left; $this->MemberName = $memberName; }
-    public function getCanEmitPointer(): bool { return true; }
+    public function __construct($left, string $memberName)
+    {
+        $this->Left = $left;
+        $this->MemberName = $memberName;
+    }
 
-    private static function findMember(CStructType $structType, string $name): ?CStructMember { return $structType->findMember($name); }
+    public function getCanEmitPointer(): bool
+    {
+        return true;
+    }
 
-    public function getEvaluatedCType($ec): CType {
+    private static function findMember(CStructType $structType, string $name): ?CStructMember
+    {
+        return $structType->findMember($name);
+    }
+
+    public function getEvaluatedCType($ec): CType
+    {
         $targetType = $this->Left->getEvaluatedCType($ec);
         if ($targetType instanceof CStructType) {
             $member = self::findMember($targetType, $this->MemberName);
-            if ($member === null) { $ec->Report->error(1061, "'{1}' not found in '{0}'", $targetType->Name, $this->MemberName); return CBasicType::$signedInt; }
+            if ($member === null) {
+                $ec->Report->error(1061, "'{1}' not found in '{0}'", $targetType->Name, $this->MemberName);
+                return CBasicType::$SignedInt;
+            }
             return $member->MemberType;
         }
         throw new \RuntimeException("Member type on " . get_class($targetType));
     }
 
-    protected function doEmit($ec): void {
+    protected function doEmit($ec): void
+    {
         $targetType = $this->Left->getEvaluatedCType($ec);
         if ($targetType instanceof CStructType) {
             $member = self::findMember($targetType, $this->MemberName);
@@ -1257,12 +1719,17 @@ class MemberFromReferenceExpression extends Expression
                     $functionType = $member->MemberType;
                     if ($member->VTableSlotIndex !== null && $targetType->VTableGlobalAddress !== null) {
                         $this->Left->emitPointer($ec);
-                        $ec->emit(OpCode::Dup); $ec->emit(OpCode::LoadPointer);
+                        $ec->emit(OpCode::Dup);
+                        $ec->emit(OpCode::LoadPointer);
                         $ec->emit(OpCode::LoadConstant, Value::pointer($member->VTableSlotIndex));
-                        $ec->emit(OpCode::OffsetPointer); $ec->emit(OpCode::LoadPointer);
+                        $ec->emit(OpCode::OffsetPointer);
+                        $ec->emit(OpCode::LoadPointer);
                     } else {
                         $res = $ec->resolveMethodFunction($targetType, $member);
-                        if ($res !== null) { $this->Left->emitPointer($ec); $ec->emit(OpCode::LoadConstant, Value::pointer($res->Address)); }
+                        if ($res !== null) {
+                            $this->Left->emitPointer($ec);
+                            $ec->emit(OpCode::LoadConstant, Value::pointer($res->Address));
+                        }
                     }
                 } else {
                     if (!$this->Left->getCanEmitPointer()) {
@@ -1271,28 +1738,38 @@ class MemberFromReferenceExpression extends Expression
                         $numValues = $targetType->getNumValues();
                         for ($i = $numValues - 1; $i >= 0; $i--) $ec->emit(OpCode::StoreLocal, $tempOffset + $i);
                         $ec->emit(OpCode::LoadConstant, Value::pointer($tempOffset));
-                        $ec->emit(OpCode::LoadFramePointer); $ec->emit(OpCode::OffsetPointer);
+                        $ec->emit(OpCode::LoadFramePointer);
+                        $ec->emit(OpCode::OffsetPointer);
                     } else $this->Left->emitPointer($ec);
                     $ec->emit(OpCode::LoadConstant, Value::pointer($targetType->getFieldValueOffset($member, $ec)));
-                    $ec->emit(OpCode::OffsetPointer); $ec->emit(OpCode::LoadPointer);
+                    $ec->emit(OpCode::OffsetPointer);
+                    $ec->emit(OpCode::LoadPointer);
                 }
             }
         } else throw new \RuntimeException("Cannot read '" . $this->MemberName . "' on " . get_class($targetType));
     }
 
-    protected function doEmitPointer($ec): void {
+    protected function doEmitPointer($ec): void
+    {
         $targetType = $this->Left->getEvaluatedCType($ec);
         if ($targetType instanceof CStructType) {
             $member = self::findMember($targetType, $this->MemberName);
             if ($member === null) $ec->Report->error(1061, "'{1}' not found in '{0}'", $targetType->Name, $this->MemberName);
             else {
                 if ($member instanceof CStructMethod && $member->MemberType instanceof CFunctionType) $ec->Report->error(1656, "Cannot assign to '{0}'", $this->MemberName);
-                else { $this->Left->emitPointer($ec); $ec->emit(OpCode::LoadConstant, Value::pointer($targetType->getFieldValueOffset($member, $ec))); $ec->emit(OpCode::OffsetPointer); }
+                else {
+                    $this->Left->emitPointer($ec);
+                    $ec->emit(OpCode::LoadConstant, Value::pointer($targetType->getFieldValueOffset($member, $ec)));
+                    $ec->emit(OpCode::OffsetPointer);
+                }
             }
         } else throw new \RuntimeException("Cannot write '" . $this->MemberName . "' on " . get_class($targetType));
     }
 
-    public function __toString(): string { return $this->Left . "." . $this->MemberName; }
+    public function __toString(): string
+    {
+        return $this->Left . "." . $this->MemberName;
+    }
 }
 
 //============================================================================
@@ -1300,27 +1777,48 @@ class MemberFromReferenceExpression extends Expression
 //============================================================================
 class MemberFromPointerExpression extends Expression
 {
-    public $Left; public $MemberName;
+    public $Left;
+    public $MemberName;
 
-    public function __construct($left, string $memberName) { $this->Left = $left; $this->MemberName = $memberName; }
-    public function getCanEmitPointer(): bool { return true; }
+    public function __construct($left, string $memberName)
+    {
+        $this->Left = $left;
+        $this->MemberName = $memberName;
+    }
 
-    private static function findMember(CStructType $structType, string $name): ?CStructMember { return $structType->findMember($name); }
+    public function getCanEmitPointer(): bool
+    {
+        return true;
+    }
 
-    public function getEvaluatedCType($ec): CType {
+    private static function findMember(CStructType $structType, string $name): ?CStructMember
+    {
+        return $structType->findMember($name);
+    }
+
+    public function getEvaluatedCType($ec): CType
+    {
         $targetType = $this->Left->getEvaluatedCType($ec);
         $pType = ($targetType instanceof CPointerType) ? $targetType : null;
         if ($pType !== null && $pType->InnerType instanceof CStructType) {
             $structType = $pType->InnerType;
             $member = self::findMember($structType, $this->MemberName);
-            if ($member === null) { $ec->Report->error(1061, "'{1}' not found in '{0}'", $structType->Name, $this->MemberName); return CBasicType::$signedInt; }
+            if ($member === null) {
+                $ec->Report->error(1061, "'{1}' not found in '{0}'", $structType->Name, $this->MemberName);
+                return CBasicType::$SignedInt;
+            }
             return $member->MemberType;
         }
-        if ($pType !== null) { $ec->Report->error(1061, "'{1}' not found in '{0}'", $pType, $this->MemberName); return CBasicType::$signedInt; }
-        $ec->Report->error(1061, "-> cannot be used with '{0}'", $targetType); return CBasicType::$signedInt;
+        if ($pType !== null) {
+            $ec->Report->error(1061, "'{1}' not found in '{0}'", $pType, $this->MemberName);
+            return CBasicType::$SignedInt;
+        }
+        $ec->Report->error(1061, "-> cannot be used with '{0}'", $targetType);
+        return CBasicType::$SignedInt;
     }
 
-    protected function doEmit($ec): void {
+    protected function doEmit($ec): void
+    {
         $targetType = $this->Left->getEvaluatedCType($ec);
         if ($targetType instanceof CPointerType && $targetType->InnerType instanceof CStructType) {
             $structType = $targetType->InnerType;
@@ -1331,23 +1829,30 @@ class MemberFromPointerExpression extends Expression
                     $functionType = $member->MemberType;
                     if ($member->VTableSlotIndex !== null && $structType->VTableGlobalAddress !== null) {
                         $this->Left->emit($ec);
-                        $ec->emit(OpCode::Dup); $ec->emit(OpCode::LoadPointer);
+                        $ec->emit(OpCode::Dup);
+                        $ec->emit(OpCode::LoadPointer);
                         $ec->emit(OpCode::LoadConstant, Value::pointer($member->VTableSlotIndex));
-                        $ec->emit(OpCode::OffsetPointer); $ec->emit(OpCode::LoadPointer);
+                        $ec->emit(OpCode::OffsetPointer);
+                        $ec->emit(OpCode::LoadPointer);
                     } else {
                         $res = $ec->resolveMethodFunction($structType, $member);
-                        if ($res !== null) { $this->Left->emit($ec); $ec->emit(OpCode::LoadConstant, Value::pointer($res->Address)); }
+                        if ($res !== null) {
+                            $this->Left->emit($ec);
+                            $ec->emit(OpCode::LoadConstant, Value::pointer($res->Address));
+                        }
                     }
                 } else {
                     $this->Left->emit($ec);
                     $ec->emit(OpCode::LoadConstant, Value::pointer($structType->getFieldValueOffset($member, $ec)));
-                    $ec->emit(OpCode::OffsetPointer); $ec->emit(OpCode::LoadPointer);
+                    $ec->emit(OpCode::OffsetPointer);
+                    $ec->emit(OpCode::LoadPointer);
                 }
             }
         } else throw new \RuntimeException("Cannot read '" . $this->MemberName . "' on " . get_class($targetType));
     }
 
-    protected function doEmitPointer($ec): void {
+    protected function doEmitPointer($ec): void
+    {
         $targetType = $this->Left->getEvaluatedCType($ec);
         if ($targetType instanceof CPointerType && $targetType->InnerType instanceof CStructType) {
             $structType = $targetType->InnerType;
@@ -1355,12 +1860,19 @@ class MemberFromPointerExpression extends Expression
             if ($member === null) $ec->Report->error(1061, "'{1}' not found in '{0}'", $structType->Name, $this->MemberName);
             else {
                 if ($member instanceof CStructMethod && $member->MemberType instanceof CFunctionType) $ec->Report->error(1656, "Cannot assign to '{0}'", $this->MemberName);
-                else { $this->Left->emit($ec); $ec->emit(OpCode::LoadConstant, Value::pointer($structType->getFieldValueOffset($member, $ec))); $ec->emit(OpCode::OffsetPointer); }
+                else {
+                    $this->Left->emit($ec);
+                    $ec->emit(OpCode::LoadConstant, Value::pointer($structType->getFieldValueOffset($member, $ec)));
+                    $ec->emit(OpCode::OffsetPointer);
+                }
             }
         } else throw new \RuntimeException("Cannot write '" . $this->MemberName . "' on " . get_class($targetType));
     }
 
-    public function __toString(): string { return $this->Left . "->" . $this->MemberName; }
+    public function __toString(): string
+    {
+        return $this->Left . "->" . $this->MemberName;
+    }
 }
 
 //============================================================================
@@ -1368,22 +1880,35 @@ class MemberFromPointerExpression extends Expression
 //============================================================================
 class ScopeResolutionExpression extends Expression
 {
-    public $TypeName; public $MemberName;
+    public $TypeName;
+    public $MemberName;
 
-    public function __construct(string $typeName, string $memberName) { $this->TypeName = $typeName; $this->MemberName = $memberName; }
-
-    public function getEvaluatedCType($ec): CType {
-        $r = $ec->tryResolveQualifiedFunction($this->TypeName, $this->MemberName, null);
-        return ($r !== null) ? $r->VariableType : CBasicType::$signedInt;
+    public function __construct(string $typeName, string $memberName)
+    {
+        $this->TypeName = $typeName;
+        $this->MemberName = $memberName;
     }
 
-    protected function doEmit($ec): void {
+    public function getEvaluatedCType($ec): CType
+    {
+        $r = $ec->tryResolveQualifiedFunction($this->TypeName, $this->MemberName, null);
+        return ($r !== null) ? $r->VariableType : CBasicType::$SignedInt;
+    }
+
+    protected function doEmit($ec): void
+    {
         $r = $ec->tryResolveQualifiedFunction($this->TypeName, $this->MemberName, null);
         if ($r !== null) $r->emit($ec);
-        else { $ec->Report->error(103, "'" . $this->TypeName . "::" . $this->MemberName . "' not found"); $ec->emit(OpCode::LoadConstant, 0); }
+        else {
+            $ec->Report->error(103, "'" . $this->TypeName . "::" . $this->MemberName . "' not found");
+            $ec->emit(OpCode::LoadConstant, 0);
+        }
     }
 
-    public function __toString(): string { return $this->TypeName . "::" . $this->MemberName; }
+    public function __toString(): string
+    {
+        return $this->TypeName . "::" . $this->MemberName;
+    }
 }
 
 //============================================================================
@@ -1391,12 +1916,31 @@ class ScopeResolutionExpression extends Expression
 //============================================================================
 class SequenceExpression extends Expression
 {
-    public $First; public $Second;
+    public $First;
+    public $Second;
 
-    public function __construct($first, $second) { $this->First = $first; $this->Second = $second; }
-    public function getEvaluatedCType($ec): CType { return $this->Second->getEvaluatedCType($ec); }
-    protected function doEmit($ec): void { $this->First->emit($ec); $ec->emit(OpCode::Pop); $this->Second->emit($ec); }
-    public function __toString(): string { return "(" . $this->First . ", " . $this->Second . ")"; }
+    public function __construct($first, $second)
+    {
+        $this->First = $first;
+        $this->Second = $second;
+    }
+
+    public function getEvaluatedCType($ec): CType
+    {
+        return $this->Second->getEvaluatedCType($ec);
+    }
+
+    protected function doEmit($ec): void
+    {
+        $this->First->emit($ec);
+        $ec->emit(OpCode::Pop);
+        $this->Second->emit($ec);
+    }
+
+    public function __toString(): string
+    {
+        return "(" . $this->First . ", " . $this->Second . ")";
+    }
 }
 
 //============================================================================
@@ -1406,9 +1950,20 @@ class SizeOfExpression extends Expression
 {
     public $Query;
 
-    public function __construct($query) { $this->Query = $query; }
-    public function getEvaluatedCType($ec): CType { return CBasicType::$unsignedLongInt; }
-    protected function doEmit($ec): void { $ec->emit(OpCode::LoadConstant, $this->Query->getEvaluatedCType($ec)->getNumValues()); }
+    public function __construct($query)
+    {
+        $this->Query = $query;
+    }
+
+    public function getEvaluatedCType($ec): CType
+    {
+        return CBasicType::$UnsignedLongInt;
+    }
+
+    protected function doEmit($ec): void
+    {
+        $ec->emit(OpCode::LoadConstant, $this->Query->getEvaluatedCType($ec)->getNumValues());
+    }
 }
 
 //============================================================================
@@ -1418,9 +1973,20 @@ class SizeOfTypeExpression extends Expression
 {
     public $TypeName;
 
-    public function __construct(TypeName $typeName) { $this->TypeName = $typeName; }
-    public function getEvaluatedCType($ec): CType { return CBasicType::$unsignedLongInt; }
-    protected function doEmit($ec): void { $ec->emit(OpCode::LoadConstant, $ec->resolveTypeName($this->TypeName)->getNumValues()); }
+    public function __construct(TypeName $typeName)
+    {
+        $this->TypeName = $typeName;
+    }
+
+    public function getEvaluatedCType($ec): CType
+    {
+        return CBasicType::$UnsignedLongInt;
+    }
+
+    protected function doEmit($ec): void
+    {
+        $ec->emit(OpCode::LoadConstant, $ec->resolveTypeName($this->TypeName)->getNumValues());
+    }
 }
 
 //============================================================================
@@ -1430,21 +1996,40 @@ class StructureExpression extends Expression
 {
     public $Items;
 
-    public function __construct() { $this->Items = []; }
+    public function __construct()
+    {
+        $this->Items = [];
+    }
 
-    public function __toString(): string {
-        $parts = []; foreach ($this->Items as $x) $parts[] = (string)$x->Expression;
+    public function __toString(): string
+    {
+        $parts = [];
+        foreach ($this->Items as $x) $parts[] = (string)$x->Expression;
         return "{ " . implode(", ", $parts) . " }";
     }
 
-    public function getEvaluatedCType($ec): CType { return CType::void(); }
-    protected function doEmit($ec): void { throw new \RuntimeException(get_class($this) . ": Emit"); }
+    public function getEvaluatedCType($ec): CType
+    {
+        return CType::void();
+    }
+
+    protected function doEmit($ec): void
+    {
+        throw new \RuntimeException(get_class($this) . ": Emit");
+    }
 }
 
 class StructureExpressionItem
 {
-    public $Index = 0; public $Field; public $Expression;
-    public function __construct(?string $field, $expression) { $this->Field = $field; $this->Expression = $expression; }
+    public $Index = 0;
+    public $Field;
+    public $Expression;
+
+    public function __construct(?string $field, $expression)
+    {
+        $this->Field = $field;
+        $this->Expression = $expression;
+    }
 }
 
 //============================================================================
@@ -1452,16 +2037,22 @@ class StructureExpressionItem
 //============================================================================
 class IfStatement extends Statement
 {
-    public $Condition; public $TrueStatement; public $FalseStatement;
+    public $Condition;
+    public $TrueStatement;
+    public $FalseStatement;
 
-    public function __construct($condition, $trueStatement, $falseStatement = null, ?Location $loc = null) {
+    public function __construct($condition, $trueStatement, $falseStatement = null, ?Location $loc = null)
+    {
         if ($condition === null) throw new \InvalidArgumentException("condition");
         if ($trueStatement === null) throw new \InvalidArgumentException("trueStatement");
-        $this->Condition = $condition; $this->TrueStatement = $trueStatement;
-        $this->FalseStatement = $falseStatement; $this->Location = $loc ?? Location::$Null;
+        $this->Condition = $condition;
+        $this->TrueStatement = $trueStatement;
+        $this->FalseStatement = $falseStatement;
+        $this->Location = $loc ?? Location::$Null;
     }
 
-    protected function doEmit($ec): void {
+    protected function doEmit($ec): void
+    {
         $endLabel = $ec->defineLabel();
         $this->Condition->emit($ec);
         $ec->emitCastToBoolean($this->Condition->getEvaluatedCType($ec));
@@ -1479,63 +2070,110 @@ class IfStatement extends Statement
         $ec->emitLabel($endLabel);
     }
 
-    public function __toString(): string { return "if (" . $this->Condition . ") " . $this->TrueStatement . ";"; }
-    public function addDeclarationToBlock($context): void {
+    public function __toString(): string
+    {
+        return "if (" . $this->Condition . ") " . $this->TrueStatement . ";";
+    }
+
+    public function addDeclarationToBlock($context): void
+    {
         $this->TrueStatement->addDeclarationToBlock($context);
         if ($this->FalseStatement !== null) $this->FalseStatement->addDeclarationToBlock($context);
     }
-    public function getAlwaysReturns(): bool { return $this->TrueStatement->getAlwaysReturns() && ($this->FalseStatement !== null ? $this->FalseStatement->getAlwaysReturns() : false); }
+
+    public function getAlwaysReturns(): bool
+    {
+        return $this->TrueStatement->getAlwaysReturns() && ($this->FalseStatement !== null ? $this->FalseStatement->getAlwaysReturns() : false);
+    }
 }
 
 class WhileStatement extends Statement
 {
-    public $IsDo; public $Condition; public $Loop;
+    public $IsDo;
+    public $Condition;
+    public $Loop;
 
-    public function __construct(bool $isDo, $condition, Block $loop) { $this->IsDo = $isDo; $this->Condition = $condition; $this->Loop = $loop; }
+    public function __construct(bool $isDo, $condition, Block $loop)
+    {
+        $this->IsDo = $isDo;
+        $this->Condition = $condition;
+        $this->Loop = $loop;
+    }
 
-    protected function doEmit($parentContext): void {
-        $condLabel = $parentContext->defineLabel(); $loopLabel = $parentContext->defineLabel(); $endLabel = $parentContext->defineLabel();
+    protected function doEmit($parentContext): void
+    {
+        $condLabel = $parentContext->defineLabel();
+        $loopLabel = $parentContext->defineLabel();
+        $endLabel = $parentContext->defineLabel();
         $ec = $parentContext->pushLoop($endLabel, $condLabel);
         if ($this->IsDo) {
-            $ec->emitLabel($loopLabel); $this->Loop->emit($ec);
-            $ec->emitLabel($condLabel); $this->Condition->emit($ec);
-            $ec->emitCastToBoolean($this->Condition->getEvaluatedCType($ec));
-            $ec->emit(OpCode::BranchIfFalse, $endLabel); $ec->emit(OpCode::Jump, $condLabel);
-        } else {
-            $ec->emitLabel($condLabel); $this->Condition->emit($ec);
+            $ec->emitLabel($loopLabel);
+            $this->Loop->emit($ec);
+            $ec->emitLabel($condLabel);
+            $this->Condition->emit($ec);
             $ec->emitCastToBoolean($this->Condition->getEvaluatedCType($ec));
             $ec->emit(OpCode::BranchIfFalse, $endLabel);
-            $ec->emitLabel($loopLabel); $parentContext->beginBlock($this->Loop);
-            $this->Loop->emit($ec); $ec->emit(OpCode::Jump, $condLabel);
+            $ec->emit(OpCode::Jump, $condLabel);
+        } else {
+            $ec->emitLabel($condLabel);
+            $this->Condition->emit($ec);
+            $ec->emitCastToBoolean($this->Condition->getEvaluatedCType($ec));
+            $ec->emit(OpCode::BranchIfFalse, $endLabel);
+            $ec->emitLabel($loopLabel);
+            $parentContext->beginBlock($this->Loop);
+            $this->Loop->emit($ec);
+            $ec->emit(OpCode::Jump, $condLabel);
         }
         $ec->emitLabel($endLabel);
     }
 
-    public function getAlwaysReturns(): bool { return false; }
-    public function __toString(): string { return $this->IsDo ? "do " . $this->Loop . " while(" . $this->Condition . ");" : "while (" . $this->Condition . ") " . $this->Loop . ";"; }
-    public function addDeclarationToBlock($context): void { $this->Loop->addDeclarationToBlock($context); }
+    public function getAlwaysReturns(): bool
+    {
+        return false;
+    }
+
+    public function __toString(): string
+    {
+        return $this->IsDo ? "do " . $this->Loop . " while(" . $this->Condition . ");" : "while (" . $this->Condition . ") " . $this->Loop . ";";
+    }
+
+    public function addDeclarationToBlock($context): void
+    {
+        $this->Loop->addDeclarationToBlock($context);
+    }
 }
 
 class ForStatement extends Statement
 {
-    public $InitBlock; public $ContinueExpression; public $NextExpression; public $LoopBody;
+    public $InitBlock;
+    public $ContinueExpression;
+    public $NextExpression;
+    public $LoopBody;
 
-    public function __construct($initStatement, $continueExpr, $loopBody, $nextExpr = null) {
+    public function __construct($initStatement, $continueExpr, $loopBody, $nextExpr = null)
+    {
         $this->InitBlock = new Block(VariableScope::Local);
         if ($initStatement !== null) $this->InitBlock->addStatement($initStatement);
-        $this->ContinueExpression = $continueExpr; $this->LoopBody = $loopBody;
+        $this->ContinueExpression = $continueExpr;
+        $this->LoopBody = $loopBody;
         if (func_num_args() > 3) $this->NextExpression = $nextExpr;
     }
 
-    public function __toString(): string { return "for (" . $this->InitBlock . "; " . $this->ContinueExpression . "; " . $this->NextExpression . ") " . $this->LoopBody; }
+    public function __toString(): string
+    {
+        return "for (" . $this->InitBlock . "; " . $this->ContinueExpression . "; " . $this->NextExpression . ") " . $this->LoopBody;
+    }
 
-    protected function doEmit($initialContext): void {
+    protected function doEmit($initialContext): void
+    {
         $initialContext->beginBlock($this->InitBlock);
         foreach ($this->InitBlock->InitStatements as $s) $s->emit($initialContext);
         foreach ($this->InitBlock->Statements as $s) $s->emit($initialContext);
-        $nextLabel = $initialContext->defineLabel(); $endLabel = $initialContext->defineLabel();
+        $nextLabel = $initialContext->defineLabel();
+        $endLabel = $initialContext->defineLabel();
         $ec = $initialContext->pushLoop($endLabel, $nextLabel);
-        $conditionLabel = $ec->defineLabel(); $ec->emitLabel($conditionLabel);
+        $conditionLabel = $ec->defineLabel();
+        $ec->emitLabel($conditionLabel);
         if ($this->ContinueExpression !== null) {
             $this->ContinueExpression->emit($ec);
             $ec->emitCastToBoolean($this->ContinueExpression->getEvaluatedCType($ec));
@@ -1543,33 +2181,54 @@ class ForStatement extends Statement
         }
         $this->LoopBody->emit($ec);
         $ec->emitLabel($nextLabel);
-        if ($this->NextExpression !== null) { $this->NextExpression->emit($ec); $ec->emit(OpCode::Pop); }
+        if ($this->NextExpression !== null) {
+            $this->NextExpression->emit($ec);
+            $ec->emit(OpCode::Pop);
+        }
         $ec->emit(OpCode::Jump, $conditionLabel);
         $ec->emitLabel($endLabel);
         $ec->endBlock();
     }
 
-    public function addDeclarationToBlock($context): void { $this->InitBlock->addDeclarationToBlock($context); $this->LoopBody->addDeclarationToBlock($context); }
-    public function getAlwaysReturns(): bool { return false; }
+    public function addDeclarationToBlock($context): void
+    {
+        $this->InitBlock->addDeclarationToBlock($context);
+        $this->LoopBody->addDeclarationToBlock($context);
+    }
+
+    public function getAlwaysReturns(): bool
+    {
+        return false;
+    }
 }
 
 class SwitchStatement extends Statement
 {
-    public $Value; public $Cases;
+    public $Value;
+    public $Cases;
 
-    public function __construct($value, array $cases, ?Location $loc = null) {
+    public function __construct($value, array $cases, ?Location $loc = null)
+    {
         if ($value === null) throw new \InvalidArgumentException("value");
         if ($cases === null) throw new \InvalidArgumentException("cases");
-        $this->Value = $value; $this->Cases = $cases; $this->Location = $loc ?? Location::$Null;
+        $this->Value = $value;
+        $this->Cases = $cases;
+        $this->Location = $loc ?? Location::$Null;
     }
 
-    protected function doEmit($initialContext): void {
+    protected function doEmit($initialContext): void
+    {
         $valueType = $this->Value->getEvaluatedCType($initialContext);
         $this->Value->emit($initialContext);
-        if (count($this->Cases) === 0) { $initialContext->emit(OpCode::Pop); return; }
-        $caseLabels = []; $defaultLabel = null;
+        if (count($this->Cases) === 0) {
+            $initialContext->emit(OpCode::Pop);
+            return;
+        }
+        $caseLabels = [];
+        $defaultLabel = null;
         foreach ($this->Cases as $c) {
-            $caseLabel = $initialContext->defineLabel(); $caseLabels[] = $caseLabel;
+            $caseLabel = $initialContext->defineLabel();
+            $caseLabels[] = $caseLabel;
             if ($c->Value === null) {
                 if ($defaultLabel !== null) $initialContext->Report->error(139, "Duplicate default labels in switch");
                 $defaultLabel = $caseLabel;
@@ -1580,60 +2239,117 @@ class SwitchStatement extends Statement
         $ioff = $ec->getInstructionOffset($valueType);
         $eqOp = OpCode::equalToInt8() + $ioff;
         for ($ci = 0; $ci < count($this->Cases); $ci++) {
-            $c = $this->Cases[$ci]; $caseLabel = $caseLabels[$ci];
+            $c = $this->Cases[$ci];
+            $caseLabel = $caseLabels[$ci];
             if ($c->Value === null) continue;
-            $ec->emit(OpCode::Dup); $c->Value->emit($ec);
+            $ec->emit(OpCode::Dup);
+            $c->Value->emit($ec);
             $ec->emitCast($c->Value->getEvaluatedCType($ec), $valueType);
-            $ec->emit($eqOp); $ec->emit(OpCode::BranchIfTrue, $caseLabel);
+            $ec->emit($eqOp);
+            $ec->emit(OpCode::BranchIfTrue, $caseLabel);
         }
-        if ($defaultLabel !== null) { $ec->emit(OpCode::Pop); $ec->emit(OpCode::Jump, $defaultLabel); }
-        else { $ec->emit(OpCode::Pop); $ec->emit(OpCode::Jump, $endLabel); }
+        if ($defaultLabel !== null) {
+            $ec->emit(OpCode::Pop);
+            $ec->emit(OpCode::Jump, $defaultLabel);
+        } else {
+            $ec->emit(OpCode::Pop);
+            $ec->emit(OpCode::Jump, $endLabel);
+        }
         for ($ci = 0; $ci < count($this->Cases); $ci++) {
-            $c = $this->Cases[$ci]; $caseLabel = $caseLabels[$ci];
+            $c = $this->Cases[$ci];
+            $caseLabel = $caseLabels[$ci];
             $ec->emitLabel($caseLabel);
             foreach ($c->Statements as $s) $s->emit($ec);
         }
         $ec->emitLabel($endLabel);
     }
 
-    public function __toString(): string { return "switch (" . $this->Value . ") " . implode("", $this->Cases) . ";"; }
-    public function addDeclarationToBlock($context): void { foreach ($this->Cases as $c) { foreach ($c->Statements as $s) $s->addDeclarationToBlock($context); } }
-    public function getAlwaysReturns(): bool { return false; }
+    public function __toString(): string
+    {
+        return "switch (" . $this->Value . ") " . implode("", $this->Cases) . ";";
+    }
+
+    public function addDeclarationToBlock($context): void
+    {
+        foreach ($this->Cases as $c) {
+            foreach ($c->Statements as $s) $s->addDeclarationToBlock($context);
+        }
+    }
+
+    public function getAlwaysReturns(): bool
+    {
+        return false;
+    }
 }
 
 class SwitchCase
 {
-    public $Value; public $Statements;
-    public function __construct($value, array $statements) { $this->Value = $value; $this->Statements = $statements; }
+    public $Value;
+    public $Statements;
+
+    public function __construct($value, array $statements)
+    {
+        $this->Value = $value;
+        $this->Statements = $statements;
+    }
 }
 
 class ReturnStatement extends Statement
 {
     public $ReturnExpression;
-    public function __construct($returnExpression = null) { $this->ReturnExpression = $returnExpression; }
 
-    protected function doEmit($ec): void {
+    public function __construct($returnExpression = null)
+    {
+        $this->ReturnExpression = $returnExpression;
+    }
+
+    protected function doEmit($ec): void
+    {
         $f = $ec->FunctionDecl;
-        if ($f === null) { $ec->Report->error(1519, "Invalid return outside of function"); return; }
+        if ($f === null) {
+            $ec->Report->error(1519, "Invalid return outside of function");
+            return;
+        }
         if ($this->ReturnExpression !== null) {
             if ($f->FunctionType->ReturnType->isVoid()) $ec->Report->error(127, "A return keyword must not be followed by any expression when the function returns void");
-            else { $this->ReturnExpression->emit($ec); $ec->emitCast($this->ReturnExpression->getEvaluatedCType($ec), $f->FunctionType->ReturnType); $ec->emit(OpCode::Return); }
+            else {
+                $this->ReturnExpression->emit($ec);
+                $ec->emitCast($this->ReturnExpression->getEvaluatedCType($ec), $f->FunctionType->ReturnType);
+                $ec->emit(OpCode::Return);
+            }
         } else {
             if ($f->FunctionType->ReturnType->isVoid()) $ec->emit(OpCode::Return);
             else $ec->Report->error(126, "A value is required for the return statement");
         }
     }
 
-    public function addDeclarationToBlock($context): void {}
-    public function getAlwaysReturns(): bool { return true; }
+    public function addDeclarationToBlock($context): void
+    {
+    }
+
+    public function getAlwaysReturns(): bool
+    {
+        return true;
+    }
 }
 
 class BreakStatement extends Statement
 {
-    public function __construct() {}
-    public function getAlwaysReturns(): bool { return false; }
-    public function addDeclarationToBlock($context): void {}
-    protected function doEmit($ec): void {
+    public function __construct()
+    {
+    }
+
+    public function getAlwaysReturns(): bool
+    {
+        return false;
+    }
+
+    public function addDeclarationToBlock($context): void
+    {
+    }
+
+    protected function doEmit($ec): void
+    {
         if ($ec->BreakLabel !== null) $ec->emit(OpCode::Jump, $ec->BreakLabel);
         else $ec->Report->error(139, "No enclosing statement out of which to break");
     }
@@ -1641,10 +2357,21 @@ class BreakStatement extends Statement
 
 class ContinueStatement extends Statement
 {
-    public function __construct() {}
-    public function getAlwaysReturns(): bool { return false; }
-    public function addDeclarationToBlock($context): void {}
-    protected function doEmit($ec): void {
+    public function __construct()
+    {
+    }
+
+    public function getAlwaysReturns(): bool
+    {
+        return false;
+    }
+
+    public function addDeclarationToBlock($context): void
+    {
+    }
+
+    protected function doEmit($ec): void
+    {
         if ($ec->ContinueLabel !== null) $ec->emit(OpCode::Jump, $ec->ContinueLabel);
         else $ec->Report->error(139, "No enclosing statement out of which to continue");
     }
@@ -1653,9 +2380,14 @@ class ContinueStatement extends Statement
 class ExpressionStatement extends Statement
 {
     public $Expression;
-    public function __construct($expr) { $this->Expression = $expr; }
 
-    protected function doEmit($ec): void {
+    public function __construct($expr)
+    {
+        $this->Expression = $expr;
+    }
+
+    protected function doEmit($ec): void
+    {
         if ($this->Expression !== null) {
             $this->Expression->emit($ec);
             $exprType = $this->Expression->getEvaluatedCType($ec);
@@ -1666,33 +2398,73 @@ class ExpressionStatement extends Statement
         }
     }
 
-    public function __toString(): string { return $this->Expression . ";"; }
-    public function addDeclarationToBlock($context): void {}
-    public function getAlwaysReturns(): bool { return false; }
+    public function __toString(): string
+    {
+        return $this->Expression . ";";
+    }
+
+    public function addDeclarationToBlock($context): void
+    {
+    }
+
+    public function getAlwaysReturns(): bool
+    {
+        return false;
+    }
 }
 
 class EnumeratorStatement extends Statement
 {
-    public $Name; public $LiteralValue;
+    public $Name;
+    public $LiteralValue;
 
-    public function __construct(string $left, $right = null) {
+    public function __construct(string $left, $right = null)
+    {
         if ($left === null) throw new \InvalidArgumentException("left");
-        $this->Name = $left; $this->LiteralValue = $right;
+        $this->Name = $left;
+        $this->LiteralValue = $right;
     }
 
-    public function getAlwaysReturns(): bool { return false; }
-    public function __toString(): string { return $this->Name . " = " . $this->LiteralValue; }
-    protected function doEmit($ec): void {}
-    public function addDeclarationToBlock($context): void {}
+    public function getAlwaysReturns(): bool
+    {
+        return false;
+    }
+
+    public function __toString(): string
+    {
+        return $this->Name . " = " . $this->LiteralValue;
+    }
+
+    protected function doEmit($ec): void
+    {
+    }
+
+    public function addDeclarationToBlock($context): void
+    {
+    }
 }
 
 class GotoStatement extends Statement
 {
     public $Label;
-    public function __construct(string $label, ?Location $location = null) { $this->Label = $label; $this->Location = $location ?? Location::$Null; }
-    public function getAlwaysReturns(): bool { return false; }
-    public function addDeclarationToBlock($context): void {}
-    protected function doEmit($ec): void {
+
+    public function __construct(string $label, ?Location $location = null)
+    {
+        $this->Label = $label;
+        $this->Location = $location ?? Location::$Null;
+    }
+
+    public function getAlwaysReturns(): bool
+    {
+        return false;
+    }
+
+    public function addDeclarationToBlock($context): void
+    {
+    }
+
+    protected function doEmit($ec): void
+    {
         $label = $ec->resolveGotoLabel($this->Label);
         if ($label !== null) $ec->emit(OpCode::Jump, $label);
         else $ec->Report->error(9999, "goto statement used outside of function body");
@@ -1701,11 +2473,28 @@ class GotoStatement extends Statement
 
 class LabeledStatement extends Statement
 {
-    public $Label; public $Statement;
-    public function __construct(string $label, $statement, ?Location $location = null) { $this->Label = $label; $this->Statement = $statement; $this->Location = $location ?? Location::$Null; }
-    public function getAlwaysReturns(): bool { return $this->Statement->getAlwaysReturns(); }
-    public function addDeclarationToBlock($context): void { $this->Statement->addDeclarationToBlock($context); }
-    protected function doEmit($ec): void {
+    public $Label;
+    public $Statement;
+
+    public function __construct(string $label, $statement, ?Location $location = null)
+    {
+        $this->Label = $label;
+        $this->Statement = $statement;
+        $this->Location = $location ?? Location::$Null;
+    }
+
+    public function getAlwaysReturns(): bool
+    {
+        return $this->Statement->getAlwaysReturns();
+    }
+
+    public function addDeclarationToBlock($context): void
+    {
+        $this->Statement->addDeclarationToBlock($context);
+    }
+
+    protected function doEmit($ec): void
+    {
         $label = $ec->defineGotoLabel($this->Label);
         if ($label !== null) $ec->emitLabel($label);
         $this->Statement->emit($ec);
@@ -1717,133 +2506,299 @@ class LabeledStatement extends Statement
 //============================================================================
 abstract class Declaration extends Statement
 {
-    public $Specifiers; public $Declarator; public $Initializer;
-    public function getAlwaysReturns(): bool { return false; }
-    public function __construct($specs, $decl, $init) { $this->Specifiers = $specs; $this->Declarator = $decl; $this->Initializer = $init; }
+    public $Specifiers;
+    public $Declarator;
+    public $Initializer;
+
+    public function getAlwaysReturns(): bool
+    {
+        return false;
+    }
+
+    public function __construct($specs, $decl, $init)
+    {
+        $this->Specifiers = $specs;
+        $this->Declarator = $decl;
+        $this->Initializer = $init;
+    }
 }
 
 abstract class Declarator
 {
     public abstract function getDeclaredIdentifier(): string;
+
     public $StrongBinding = false;
     public $InnerDeclarator;
-    public function __construct(?Declarator $innerDeclarator) { $this->InnerDeclarator = $innerDeclarator; }
-    public function __toString(): string { return $this->getDeclaredIdentifier(); }
+
+    public function __construct(?Declarator $innerDeclarator)
+    {
+        $this->InnerDeclarator = $innerDeclarator;
+    }
+
+    public function __toString(): string
+    {
+        return $this->getDeclaredIdentifier();
+    }
 }
 
 class IdentifierDeclarator extends Declarator
 {
-    public $Identifier; public $Context = [];
-    public function __construct(string $id) { parent::__construct(null); $this->Identifier = $id; }
-    public function getDeclaredIdentifier(): string { return $this->Identifier; }
-    public function push(string $id): IdentifierDeclarator { $this->Context[] = $this->Identifier; $this->Identifier = $id; return $this; }
-    public function __toString(): string { return $this->Identifier; }
+    public $Identifier;
+    public $Context = [];
+
+    public function __construct(string $id)
+    {
+        parent::__construct(null);
+        $this->Identifier = $id;
+    }
+
+    public function getDeclaredIdentifier(): string
+    {
+        return $this->Identifier;
+    }
+
+    public function push(string $id): IdentifierDeclarator
+    {
+        $this->Context[] = $this->Identifier;
+        $this->Identifier = $id;
+        return $this;
+    }
+
+    public function __toString(): string
+    {
+        return $this->Identifier;
+    }
 }
 
 class ArrayDeclarator extends Declarator
 {
-    public $LengthExpression; public $TypeQualifiers = TypeQualifiers::None; public $LengthIsStatic = false;
-    public function __construct(?Declarator $innerDeclarator, $length) { parent::__construct($innerDeclarator); $this->LengthExpression = $length; }
-    public function getDeclaredIdentifier(): string { return $this->InnerDeclarator !== null ? $this->InnerDeclarator->getDeclaredIdentifier() : ""; }
+    public $LengthExpression;
+    public $TypeQualifiers = TypeQualifiers::None;
+    public $LengthIsStatic = false;
+
+    public function __construct(?Declarator $innerDeclarator, $length)
+    {
+        parent::__construct($innerDeclarator);
+        $this->LengthExpression = $length;
+    }
+
+    public function getDeclaredIdentifier(): string
+    {
+        return $this->InnerDeclarator !== null ? $this->InnerDeclarator->getDeclaredIdentifier() : "";
+    }
 }
 
 class FunctionDeclarator extends Declarator
 {
     public $Parameters;
-    public function __construct($innerDeclarator, ?array $parameters = null) {
-        if ($parameters === null) { parent::__construct(null); $this->Parameters = $innerDeclarator; }
-        else { parent::__construct($innerDeclarator); $this->Parameters = $parameters; }
+
+    public function __construct($innerDeclarator, ?array $parameters = null)
+    {
+        if ($parameters === null) {
+            parent::__construct(null);
+            $this->Parameters = $innerDeclarator;
+        } else {
+            parent::__construct($innerDeclarator);
+            $this->Parameters = $parameters;
+        }
     }
-    public function getDeclaredIdentifier(): string { return $this->InnerDeclarator !== null ? $this->InnerDeclarator->getDeclaredIdentifier() : ""; }
-    public function getCouldBeCtorCall(): bool { return count($this->Parameters) === 0 || $this->allCtorArgs(); }
-    private function allCtorArgs(): bool { foreach ($this->Parameters as $x) { if ($x->CtorArgumentValue === null) return false; } return true; }
-    public function __toString(): string { return $this->getDeclaredIdentifier() . "(" . implode(", ", $this->Parameters) . ")"; }
+
+    public function getDeclaredIdentifier(): string
+    {
+        return $this->InnerDeclarator !== null ? $this->InnerDeclarator->getDeclaredIdentifier() : "";
+    }
+
+    public function getCouldBeCtorCall(): bool
+    {
+        return count($this->Parameters) === 0 || $this->allCtorArgs();
+    }
+
+    private function allCtorArgs(): bool
+    {
+        foreach ($this->Parameters as $x) {
+            if ($x->CtorArgumentValue === null) return false;
+        }
+        return true;
+    }
+
+    public function __toString(): string
+    {
+        return $this->getDeclaredIdentifier() . "(" . implode(", ", $this->Parameters) . ")";
+    }
 }
 
 class Pointer
 {
-    public $TypeQualifiers = TypeQualifiers::None; public $NextPointer;
-    public function __construct($qual, ?Pointer $p = null) { $this->TypeQualifiers = $qual; $this->NextPointer = $p; }
+    public $TypeQualifiers = TypeQualifiers::None;
+    public $NextPointer;
+
+    public function __construct($qual, ?Pointer $p = null)
+    {
+        $this->TypeQualifiers = $qual;
+        $this->NextPointer = $p;
+    }
 }
 
 class PointerDeclarator extends Declarator
 {
     public $Pointer;
-    public function __construct(Pointer $pointer, Declarator $decl) { parent::__construct($decl); $this->Pointer = $pointer; }
-    public function getDeclaredIdentifier(): string { return $this->InnerDeclarator !== null ? $this->InnerDeclarator->getDeclaredIdentifier() : ""; }
+
+    public function __construct(Pointer $pointer, Declarator $decl)
+    {
+        parent::__construct($decl);
+        $this->Pointer = $pointer;
+    }
+
+    public function getDeclaredIdentifier(): string
+    {
+        return $this->InnerDeclarator !== null ? $this->InnerDeclarator->getDeclaredIdentifier() : "";
+    }
 }
 
 class ReferenceDeclarator extends Declarator
 {
     public $Qualifiers;
-    public function __construct(?Declarator $inner, int $qualifiers = TypeQualifiers::None) { parent::__construct($inner); $this->Qualifiers = $qualifiers; }
-    public function getDeclaredIdentifier(): string { return $this->InnerDeclarator !== null ? $this->InnerDeclarator->getDeclaredIdentifier() : ""; }
+
+    public function __construct(?Declarator $inner, int $qualifiers = TypeQualifiers::None)
+    {
+        parent::__construct($inner);
+        $this->Qualifiers = $qualifiers;
+    }
+
+    public function getDeclaredIdentifier(): string
+    {
+        return $this->InnerDeclarator !== null ? $this->InnerDeclarator->getDeclaredIdentifier() : "";
+    }
 }
 
 //============================================================================
 // Initializer
 //============================================================================
-abstract class Initializer { public $Designation; }
+abstract class Initializer
+{
+    public $Designation;
+}
 
 class ExpressionInitializer extends Initializer
 {
     public $Expression;
-    public function __construct($expr) { $this->Expression = $expr; }
-    public function __toString(): string { return (string)$this->Expression; }
+
+    public function __construct($expr)
+    {
+        $this->Expression = $expr;
+    }
+
+    public function __toString(): string
+    {
+        return (string)$this->Expression;
+    }
 }
 
 class StructuredInitializer extends Initializer
 {
     public $Initializers = [];
-    public function __construct() { $this->Initializers = []; }
-    public function add(Initializer $init): void { $this->Initializers[] = $init; }
+
+    public function __construct()
+    {
+        $this->Initializers = [];
+    }
+
+    public function add(Initializer $init): void
+    {
+        $this->Initializers[] = $init;
+    }
 }
 
 class InitializerDesignation
 {
     public $Designators;
-    public function __construct(array $des) { $this->Designators = []; foreach ($des as $d) $this->Designators[] = $d; }
+
+    public function __construct(array $des)
+    {
+        $this->Designators = [];
+        foreach ($des as $d) $this->Designators[] = $d;
+    }
 }
 
-class InitializerDesignator {}
+class InitializerDesignator
+{
+}
 
 //============================================================================
 // TypeName, TypeSpecifier, ParameterDeclaration
 //============================================================================
 class TypeName
 {
-    public $Specifiers; public $Declarator;
-    public function __construct($specifiers, ?Declarator $declarator = null) { $this->Specifiers = $specifiers; $this->Declarator = $declarator; }
-    public function __toString(): string { return implode(", ", $this->Specifiers->TypeSpecifiers); }
+    public $Specifiers;
+    public $Declarator;
+
+    public function __construct($specifiers, ?Declarator $declarator = null)
+    {
+        $this->Specifiers = $specifiers;
+        $this->Declarator = $declarator;
+    }
+
+    public function __toString(): string
+    {
+        return implode(", ", $this->Specifiers->TypeSpecifiers);
+    }
 }
 
 class TypeSpecifier
 {
-    public $Kind; public $Name; public $Body; public $BaseSpecifiers;
-    public function __construct(int $kind, string $name, ?Block $body = null) { $this->Kind = $kind; $this->Name = $name; $this->Body = $body; }
-    public function __toString(): string { return $this->Name; }
+    public $Kind;
+    public $Name;
+    public $Body;
+    public $BaseSpecifiers;
+
+    public function __construct(int $kind, string $name, ?Block $body = null)
+    {
+        $this->Kind = $kind;
+        $this->Name = $name;
+        $this->Body = $body;
+    }
+
+    public function __toString(): string
+    {
+        return $this->Name;
+    }
 }
 
 class ParameterDeclaration
 {
-    public $Name; public $DeclarationSpecifiers; public $Declarator; public $DefaultValue; public $CtorArgumentValue;
+    public $Name;
+    public $DeclarationSpecifiers;
+    public $Declarator;
+    public $DefaultValue;
+    public $CtorArgumentValue;
 
-    public function __construct($specsOrName, ?Declarator $dec = null, $defaultValue = null) {
-        if ($specsOrName instanceof Expression) { $this->Name = ""; $this->CtorArgumentValue = $specsOrName; }
-        elseif (is_string($specsOrName)) { $this->Name = $specsOrName; }
-        elseif ($specsOrName instanceof DeclarationSpecifiers) {
+    public function __construct($specsOrName, ?Declarator $dec = null, $defaultValue = null)
+    {
+        if ($specsOrName instanceof Expression) {
+            $this->Name = "";
+            $this->CtorArgumentValue = $specsOrName;
+        } elseif (is_string($specsOrName)) {
+            $this->Name = $specsOrName;
+        } elseif ($specsOrName instanceof DeclarationSpecifiers) {
             $this->DeclarationSpecifiers = $specsOrName;
             $this->Name = $dec !== null ? $dec->getDeclaredIdentifier() : "";
-            $this->Declarator = $dec; $this->DefaultValue = $defaultValue;
+            $this->Declarator = $dec;
+            $this->DefaultValue = $defaultValue;
         }
     }
 
-    public function __toString(): string { return $this->DeclarationSpecifiers . " " . $this->Declarator; }
+    public function __toString(): string
+    {
+        return $this->DeclarationSpecifiers . " " . $this->Declarator;
+    }
 }
 
 class VarParameter extends ParameterDeclaration
 {
-    public function __construct() { parent::__construct("..."); }
+    public function __construct()
+    {
+        parent::__construct("...");
+    }
 }
 
 //============================================================================
@@ -1851,20 +2806,31 @@ class VarParameter extends ParameterDeclaration
 //============================================================================
 class FunctionDefinition extends Statement
 {
-    public $Specifiers; public $Declarator; public $ParameterDeclarations; public $Body;
+    public $Specifiers;
+    public $Declarator;
+    public $ParameterDeclarations;
+    public $Body;
 
-    public function __construct($specifiers, $declarator, ?array $parameterDeclarations, Block $body) {
+    public function __construct($specifiers, $declarator, ?array $parameterDeclarations, Block $body)
+    {
         if ($specifiers === null) throw new \InvalidArgumentException("specifiers");
         if ($declarator === null) throw new \InvalidArgumentException("declarator");
         if ($body === null) throw new \InvalidArgumentException("body");
-        $this->Specifiers = $specifiers; $this->Declarator = $declarator;
-        $this->ParameterDeclarations = $parameterDeclarations; $this->Body = $body;
+        $this->Specifiers = $specifiers;
+        $this->Declarator = $declarator;
+        $this->ParameterDeclarations = $parameterDeclarations;
+        $this->Body = $body;
     }
 
-    public function getAlwaysReturns(): bool { return false; }
+    public function getAlwaysReturns(): bool
+    {
+        return false;
+    }
 
-    public function addDeclarationToBlock($context): void {
-        $fdef = $this; $block = $context->Block;
+    public function addDeclarationToBlock($context): void
+    {
+        $fdef = $this;
+        $block = $context->Block;
         $ftype = $context->makeCType($fdef->Specifiers, $fdef->Declarator, null, $block);
         if ($ftype instanceof CFunctionType) {
             $name = $fdef->Declarator->getDeclaredIdentifier();
@@ -1875,7 +2841,9 @@ class FunctionDefinition extends Statement
         }
     }
 
-    protected function doEmit($ec): void {}
+    protected function doEmit($ec): void
+    {
+    }
 }
 
 //============================================================================
@@ -1887,39 +2855,69 @@ class DeclarationSpecifiers
     public $TypeSpecifiers = [];
     public $FunctionSpecifier = FunctionSpecifier::None;
     public $TypeQualifiers = TypeQualifiers::None;
-    public function __construct() { $this->TypeSpecifiers = []; }
-    public function __toString(): string {
+
+    public function __construct()
+    {
+        $this->TypeSpecifiers = [];
+    }
+
+    public function __toString(): string
+    {
         if ($this->StorageClassSpecifier === StorageClassSpecifier::Auto) return "auto";
-        $parts = []; foreach ($this->TypeSpecifiers as $ts) $parts[] = (string)$ts;
+        $parts = [];
+        foreach ($this->TypeSpecifiers as $ts) $parts[] = (string)$ts;
         return implode(" ", $parts);
     }
 }
 
 class InitDeclarator
 {
-    public $Declarator; public $Initializer;
-    public function __construct($declarator, $initializer = null) { $this->Declarator = $declarator; $this->Initializer = $initializer; }
-    public function __toString(): string { return (string)$this->Declarator; }
+    public $Declarator;
+    public $Initializer;
+
+    public function __construct($declarator, $initializer = null)
+    {
+        $this->Declarator = $declarator;
+        $this->Initializer = $initializer;
+    }
+
+    public function __toString(): string
+    {
+        return (string)$this->Declarator;
+    }
 }
 
 class MultiDeclaratorStatement extends Statement
 {
-    public $Specifiers; public $InitDeclarators;
+    public $Specifiers;
+    public $InitDeclarators;
 
-    public function __construct($specifiers, ?array $initDeclarators) { $this->Specifiers = $specifiers; $this->InitDeclarators = $initDeclarators; }
-    public function getAlwaysReturns(): bool { return false; }
+    public function __construct($specifiers, ?array $initDeclarators)
+    {
+        $this->Specifiers = $specifiers;
+        $this->InitDeclarators = $initDeclarators;
+    }
 
-    public function __toString(): string {
-        $parts = []; foreach ($this->Specifiers->TypeSpecifiers as $ts) $parts[] = (string)$ts;
+    public function getAlwaysReturns(): bool
+    {
+        return false;
+    }
+
+    public function __toString(): string
+    {
+        $parts = [];
+        foreach ($this->Specifiers->TypeSpecifiers as $ts) $parts[] = (string)$ts;
         $result = implode(" ", $parts);
         if ($this->InitDeclarators !== null) {
-            $declParts = []; foreach ($this->InitDeclarators as $id) $declParts[] = (string)$id;
+            $declParts = [];
+            foreach ($this->InitDeclarators as $id) $declParts[] = (string)$id;
             $result .= " " . implode(", ", $declParts);
         }
         return $result;
     }
 
-    protected function doEmit($ec): void {
+    protected function doEmit($ec): void
+    {
         $multi = $this;
         if ($multi->InitDeclarators !== null) {
             foreach ($multi->InitDeclarators as $idecl) {
@@ -1940,8 +2938,10 @@ class MultiDeclaratorStatement extends Statement
         }
     }
 
-    public function addDeclarationToBlock($context): void {
-        $multi = $this; $block = $context->Block;
+    public function addDeclarationToBlock($context): void
+    {
+        $multi = $this;
+        $block = $context->Block;
         if ($multi->InitDeclarators !== null) {
             foreach ($multi->InitDeclarators as $idecl) {
                 if (($multi->Specifiers->StorageClassSpecifier & StorageClassSpecifier::Typedef) !== 0) {
@@ -1952,9 +2952,18 @@ class MultiDeclaratorStatement extends Statement
                     $name = $idecl->Declarator->getDeclaredIdentifier();
                     if ($ctype instanceof CFunctionType && !self::hasStronglyBoundPointer($idecl->Declarator)) {
                         if ($ctype->ReturnType instanceof CStructType && $idecl->Initializer === null && $idecl->Declarator instanceof FunctionDeclarator && $idecl->Declarator->getCouldBeCtorCall()) {
-                            $found = false; foreach ($block->Variables as $v) { if ($v->Name === $name) { $found = true; break; } }
+                            $found = false;
+                            foreach ($block->Variables as $v) {
+                                if ($v->Name === $name) {
+                                    $found = true;
+                                    break;
+                                }
+                            }
                             if ($found) $context->Report->error(2086, "Redefinition of '{0}'", $name);
-                            else { $block->addVariable($name, $ctype->ReturnType); $block->InitStatements[] = self::getCtorInitializerStatement($name, $ctype->ReturnType, $idecl->Declarator); }
+                            else {
+                                $block->addVariable($name, $ctype->ReturnType);
+                                $block->InitStatements[] = self::getCtorInitializerStatement($name, $ctype->ReturnType, $idecl->Declarator);
+                            }
                         } else {
                             $nameContext = "";
                             if ($idecl->Declarator->InnerDeclarator instanceof IdentifierDeclarator && count($idecl->Declarator->InnerDeclarator->Context) > 0)
@@ -1967,14 +2976,22 @@ class MultiDeclaratorStatement extends Statement
                                 $len = 0;
                                 foreach ($idecl->Initializer->Initializers as $i) {
                                     if ($i->Designation === null) $len++;
-                                    else { foreach ($i->Designation->Designators as $de) $len++; }
+                                    else {
+                                        foreach ($i->Designation->Designators as $de) $len++;
+                                    }
                                 }
                                 $ctype = new CArrayType($ctype->ElementType, $len);
                             }
                         }
-                        $found = false; foreach ($block->Variables as $v) { if ($v->Name === $name) { $found = true; break; } }
+                        $found = false;
+                        foreach ($block->Variables as $v) {
+                            if ($v->Name === $name) {
+                                $found = true;
+                                break;
+                            }
+                        }
                         if ($found) $context->Report->error(2086, "Redefinition of '{0}'", $name);
-                        else $block->addVariable($name, $ctype ?? CBasicType::$signedInt);
+                        else $block->addVariable($name, $ctype ?? CBasicType::$SignedInt);
                     }
                     if ($idecl->Initializer !== null) {
                         $varExpr = new VariableExpression($name, Location::$Null, Location::$Null);
@@ -1985,19 +3002,28 @@ class MultiDeclaratorStatement extends Statement
             }
         } else {
             $ctype = $context->makeCType($multi->Specifiers, null, $block);
-            if ($ctype instanceof CStructType) { $n = $ctype->Name; if ($n !== null && $n !== '') $block->Structures[$n] = $ctype; }
-            elseif ($ctype instanceof CEnumType) { $n = $ctype->Name; if ($n === null || $n === '') $n = "e" . spl_object_id($ctype); $block->Enums[$n] = $ctype; }
+            if ($ctype instanceof CStructType) {
+                $n = $ctype->Name;
+                if ($n !== null && $n !== '') $block->Structures[$n] = $ctype;
+            } elseif ($ctype instanceof CEnumType) {
+                $n = $ctype->Name;
+                if ($n === null || $n === '') $n = "e" . spl_object_id($ctype);
+                $block->Enums[$n] = $ctype;
+            }
         }
     }
 
-    private static function getCtorInitializerStatement(string $name, CStructType $ctorDeclType, FunctionDeclarator $ctorDecl): ExpressionStatement {
+    private static function getCtorInitializerStatement(string $name, CStructType $ctorDeclType, FunctionDeclarator $ctorDecl): ExpressionStatement
+    {
         $varExpr = new VariableExpression($name, Location::$Null, Location::$Null);
         $memExpr = new MemberFromReferenceExpression($varExpr, $ctorDeclType->Name);
-        $args = []; foreach ($ctorDecl->Parameters as $p) $args[] = $p->CtorArgumentValue;
+        $args = [];
+        foreach ($ctorDecl->Parameters as $p) $args[] = $p->CtorArgumentValue;
         return new ExpressionStatement(new FuncallExpression($memExpr, $args));
     }
 
-    private static function getInitializerExpression($init) {
+    private static function getInitializerExpression($init)
+    {
         if ($init instanceof ExpressionInitializer) return $init->Expression;
         elseif ($init instanceof StructuredInitializer) {
             $sexpr = new StructureExpression();
@@ -2005,13 +3031,16 @@ class MultiDeclaratorStatement extends Statement
                 $e = self::getInitializerExpression($i);
                 if ($i->Designation === null || count($i->Designation->Designators) === 0)
                     $sexpr->Items[] = new StructureExpressionItem(null, self::getInitializerExpression($i));
-                else { foreach ($i->Designation->Designators as $d) $sexpr->Items[] = new StructureExpressionItem((string)$d, $e); }
+                else {
+                    foreach ($i->Designation->Designators as $d) $sexpr->Items[] = new StructureExpressionItem((string)$d, $e);
+                }
             }
             return $sexpr;
         } else throw new \RuntimeException((string)$init);
     }
 
-    private static function hasStronglyBoundPointer($d): bool {
+    private static function hasStronglyBoundPointer($d): bool
+    {
         if ($d === null) return false;
         if ($d instanceof PointerDeclarator && $d->StrongBinding) return true;
         return self::hasStronglyBoundPointer($d->InnerDeclarator);
@@ -2023,11 +3052,28 @@ class MultiDeclaratorStatement extends Statement
 //============================================================================
 class VirtualDeclarationStatement extends Statement
 {
-    public $InnerDeclaration; public $IsVirtual = false; public $IsOverride = false; public $IsPureVirtual = false;
-    public function __construct($innerDeclaration) { $this->InnerDeclaration = $innerDeclaration; }
-    public function getAlwaysReturns(): bool { return false; }
-    protected function doEmit($ec): void {}
-    public function addDeclarationToBlock($context): void {}
+    public $InnerDeclaration;
+    public $IsVirtual = false;
+    public $IsOverride = false;
+    public $IsPureVirtual = false;
+
+    public function __construct($innerDeclaration)
+    {
+        $this->InnerDeclaration = $innerDeclaration;
+    }
+
+    public function getAlwaysReturns(): bool
+    {
+        return false;
+    }
+
+    protected function doEmit($ec): void
+    {
+    }
+
+    public function addDeclarationToBlock($context): void
+    {
+    }
 }
 
 //============================================================================
@@ -2036,10 +3082,24 @@ class VirtualDeclarationStatement extends Statement
 class VisibilityStatement extends Statement
 {
     public $Visibility;
-    public function __construct(int $visibility) { $this->Visibility = $visibility; }
-    public function getAlwaysReturns(): bool { throw new \RuntimeException("Not implemented"); }
-    protected function doEmit($ec): void {}
-    public function addDeclarationToBlock($context): void {}
+
+    public function __construct(int $visibility)
+    {
+        $this->Visibility = $visibility;
+    }
+
+    public function getAlwaysReturns(): bool
+    {
+        throw new \RuntimeException("Not implemented");
+    }
+
+    protected function doEmit($ec): void
+    {
+    }
+
+    public function addDeclarationToBlock($context): void
+    {
+    }
 }
 
 //============================================================================
@@ -2047,15 +3107,29 @@ class VisibilityStatement extends Statement
 //============================================================================
 class BaseSpecifier
 {
-    public $Name; public $Visibility;
-    public function __construct(string $name, ?int $visibility = null) { $this->Name = $name; $this->Visibility = $visibility; }
-    public function __toString(): string {
+    public $Name;
+    public $Visibility;
+
+    public function __construct(string $name, ?int $visibility = null)
+    {
+        $this->Name = $name;
+        $this->Visibility = $visibility;
+    }
+
+    public function __toString(): string
+    {
         if ($this->Visibility !== null) {
             $vis = "";
             switch ($this->Visibility) {
-                case DeclarationsVisibility::Public: $vis = "public"; break;
-                case DeclarationsVisibility::Private: $vis = "private"; break;
-                case DeclarationsVisibility::Protected: $vis = "protected"; break;
+                case DeclarationsVisibility::Public:
+                    $vis = "public";
+                    break;
+                case DeclarationsVisibility::Private:
+                    $vis = "private";
+                    break;
+                case DeclarationsVisibility::Protected:
+                    $vis = "protected";
+                    break;
             }
             return $vis . " " . $this->Name;
         }
@@ -2068,29 +3142,44 @@ class BaseSpecifier
 //============================================================================
 class FuncallExpression extends Expression
 {
-    public $Function; public $Arguments;
+    public $Function;
+    public $Arguments;
 
-    public function __construct($fun, ?array $args = null) { $this->Function = $fun; $this->Arguments = $args ?? []; }
-
-    public function getEvaluatedCType($ec): CType {
-        $argTypes = []; foreach ($this->Arguments as $a) $argTypes[] = $a->getEvaluatedCType($ec);
-        $function = $this->resolveOverload($this->Function, $argTypes, $ec);
-        $ft = $function->CType;
-        return ($ft instanceof CFunctionType) ? $ft->ReturnType : CBasicType::$signedInt;
+    public function __construct($fun, ?array $args = null)
+    {
+        $this->Function = $fun;
+        $this->Arguments = $args ?? [];
     }
 
-    protected function doEmit($ec): void {
-        $argTypes = []; foreach ($this->Arguments as $a) $argTypes[] = $a->getEvaluatedCType($ec);
+    public function getEvaluatedCType($ec): CType
+    {
+        $argTypes = [];
+        foreach ($this->Arguments as $a) $argTypes[] = $a->getEvaluatedCType($ec);
+        $function = $this->resolveOverload($this->Function, $argTypes, $ec);
+        $ft = $function->CType;
+        return ($ft instanceof CFunctionType) ? $ft->ReturnType : CBasicType::$SignedInt;
+    }
+
+    protected function doEmit($ec): void
+    {
+        $argTypes = [];
+        foreach ($this->Arguments as $a) $argTypes[] = $a->getEvaluatedCType($ec);
         $function = $this->resolveOverload($this->Function, $argTypes, $ec);
         $type = $function->CType;
         $numRequiredParameters = 0;
         if ($type instanceof CFunctionType) {
-            foreach ($type->Parameters as $p) { if ($p->DefaultValue !== null) break; $numRequiredParameters++; }
+            foreach ($type->Parameters as $p) {
+                if ($p->DefaultValue !== null) break;
+                $numRequiredParameters++;
+            }
             if (count($this->Arguments) < $numRequiredParameters) {
                 $ec->Report->error(1501, "'{0}' takes {1} arguments, {2} provided", $this->Function, $numRequiredParameters, count($this->Arguments));
                 return;
             }
-        } else { $ec->Report->error(2064, "'{0}' does not evaluate to a function taking {1} arguments", $this->Function, count($this->Arguments)); return; }
+        } else {
+            $ec->Report->error(2064, "'{0}' does not evaluate to a function taking {1} arguments", $this->Function, count($this->Arguments));
+            return;
+        }
 
         for ($i = 0; $i < count($this->Arguments); $i++) {
             $paramType = $type->Parameters[$i]->ParameterType;
@@ -2102,9 +3191,13 @@ class FuncallExpression extends Expression
                     $ec->emitCast($argTypes[$i], $paramType->InnerType);
                     $ec->emit(OpCode::StoreLocal, $tempOffset);
                     $ec->emit(OpCode::LoadConstant, Value::pointer($tempOffset));
-                    $ec->emit(OpCode::LoadFramePointer); $ec->emit(OpCode::OffsetPointer);
+                    $ec->emit(OpCode::LoadFramePointer);
+                    $ec->emit(OpCode::OffsetPointer);
                 }
-            } else { $this->Arguments[$i]->emit($ec); $ec->emitCast($argTypes[$i], $paramType); }
+            } else {
+                $this->Arguments[$i]->emit($ec);
+                $ec->emitCast($argTypes[$i], $paramType);
+            }
         }
         for ($i = count($this->Arguments); $i < count($type->Parameters); $i++) {
             $v = $type->Parameters[$i]->DefaultValue ?? 0;
@@ -2116,50 +3209,98 @@ class FuncallExpression extends Expression
         if ($type->ReturnType->isVoid()) $ec->emit(OpCode::LoadConstant, 0);
     }
 
-    private function resolveOverload($function, array $argTypes, $ec) {
+    private function resolveOverload($function, array $argTypes, $ec)
+    {
         if ($function instanceof MemberFromReferenceExpression) {
             $targetType = $function->Left->getEvaluatedCType($ec);
             if ($targetType instanceof CStructType) {
                 $methods = $targetType->findMethods($function->MemberName);
-                if (count($methods) === 0) { $ec->Report->error(1061, "'{1}' not found in '{0}'", $targetType->Name, $function->MemberName); return Overload::error(); }
-                $scoredMethods = [];
-                foreach ($methods as $m) { $mt = $m->MemberType; if ($mt instanceof CFunctionType) { $score = $mt->scoreParameterTypeMatches($argTypes); if ($score > 0) $scoredMethods[] = new ScoredMethod($m, $score); } }
-                usort($scoredMethods, function ($a, $b) { return $b->Score - $a->Score; });
-                $bestMatch = count($scoredMethods) > 0 ? $scoredMethods[0] : null;
-                if ($bestMatch === null) { $ec->Report->error(1503, "'" . $function . "' argument type mismatch"); return Overload::error(); }
-                $method = $bestMatch->Method;
-                if ($method->VTableSlotIndex !== null && $targetType->VTableGlobalAddress !== null) {
-                    return new Overload($method->MemberType, function ($nec) use ($function) { $function->Left->emitPointer($nec); }, $method->VTableSlotIndex);
-                } else {
-                    $res = $ec->resolveMethodFunction($targetType, $method);
-                    if ($res !== null) return new Overload($res->Function !== null ? $res->Function->FunctionType : null, function ($nec) use ($function, $res) { $function->Left->emitPointer($nec); $nec->emit(OpCode::LoadConstant, Value::pointer($res->Address)); });
+                if (count($methods) === 0) {
+                    $ec->Report->error(1061, "'{1}' not found in '{0}'", $targetType->Name, $function->MemberName);
                     return Overload::error();
                 }
-            } else { $ec->Report->error(119, "'" . $function->Left . "' is not valid in the given context"); return Overload::error(); }
+                $scoredMethods = [];
+                foreach ($methods as $m) {
+                    $mt = $m->MemberType;
+                    if ($mt instanceof CFunctionType) {
+                        $score = $mt->scoreParameterTypeMatches($argTypes);
+                        if ($score > 0) $scoredMethods[] = new ScoredMethod($m, $score);
+                    }
+                }
+                usort($scoredMethods, function ($a, $b) {
+                    return $b->Score - $a->Score;
+                });
+                $bestMatch = count($scoredMethods) > 0 ? $scoredMethods[0] : null;
+                if ($bestMatch === null) {
+                    $ec->Report->error(1503, "'" . $function . "' argument type mismatch");
+                    return Overload::error();
+                }
+                $method = $bestMatch->Method;
+                if ($method->VTableSlotIndex !== null && $targetType->VTableGlobalAddress !== null) {
+                    return new Overload($method->MemberType, function ($nec) use ($function) {
+                        $function->Left->emitPointer($nec);
+                    }, $method->VTableSlotIndex);
+                } else {
+                    $res = $ec->resolveMethodFunction($targetType, $method);
+                    if ($res !== null) return new Overload($res->Function !== null ? $res->Function->FunctionType : null, function ($nec) use ($function, $res) {
+                        $function->Left->emitPointer($nec);
+                        $nec->emit(OpCode::LoadConstant, Value::pointer($res->Address));
+                    });
+                    return Overload::error();
+                }
+            } else {
+                $ec->Report->error(119, "'" . $function->Left . "' is not valid in the given context");
+                return Overload::error();
+            }
         } elseif ($function instanceof MemberFromPointerExpression) {
             $targetType = $function->Left->getEvaluatedCType($ec);
             if ($targetType instanceof CPointerType && $targetType->InnerType instanceof CStructType) {
                 $structType = $targetType->InnerType;
                 $methods = $structType->findMethods($function->MemberName);
-                if (count($methods) === 0) { $ec->Report->error(1061, "'{1}' not found in '{0}'", $structType->Name, $function->MemberName); return Overload::error(); }
-                $scoredMethods = [];
-                foreach ($methods as $m) { $mt = $m->MemberType; if ($mt instanceof CFunctionType) { $score = $mt->scoreParameterTypeMatches($argTypes); if ($score > 0) $scoredMethods[] = new ScoredMethod($m, $score); } }
-                usort($scoredMethods, function ($a, $b) { return $b->Score - $a->Score; });
-                $bestMatch = count($scoredMethods) > 0 ? $scoredMethods[0] : null;
-                if ($bestMatch === null) { $ec->Report->error(1503, "'" . $function . "' argument type mismatch"); return Overload::error(); }
-                $method = $bestMatch->Method;
-                if ($method->VTableSlotIndex !== null && $structType->VTableGlobalAddress !== null)
-                    return new Overload($method->MemberType, function ($nec) use ($function) { $function->Left->emit($nec); }, $method->VTableSlotIndex);
-                else {
-                    $res = $ec->resolveMethodFunction($structType, $method);
-                    if ($res !== null) return new Overload($res->Function !== null ? $res->Function->FunctionType : null, function ($nec) use ($function, $res) { $function->Left->emit($nec); $nec->emit(OpCode::LoadConstant, Value::pointer($res->Address)); });
+                if (count($methods) === 0) {
+                    $ec->Report->error(1061, "'{1}' not found in '{0}'", $structType->Name, $function->MemberName);
                     return Overload::error();
                 }
-            } else { $ec->Report->error(119, "'" . $function->Left . "' is not valid for -> operator"); return Overload::error(); }
+                $scoredMethods = [];
+                foreach ($methods as $m) {
+                    $mt = $m->MemberType;
+                    if ($mt instanceof CFunctionType) {
+                        $score = $mt->scoreParameterTypeMatches($argTypes);
+                        if ($score > 0) $scoredMethods[] = new ScoredMethod($m, $score);
+                    }
+                }
+                usort($scoredMethods, function ($a, $b) {
+                    return $b->Score - $a->Score;
+                });
+                $bestMatch = count($scoredMethods) > 0 ? $scoredMethods[0] : null;
+                if ($bestMatch === null) {
+                    $ec->Report->error(1503, "'" . $function . "' argument type mismatch");
+                    return Overload::error();
+                }
+                $method = $bestMatch->Method;
+                if ($method->VTableSlotIndex !== null && $structType->VTableGlobalAddress !== null)
+                    return new Overload($method->MemberType, function ($nec) use ($function) {
+                        $function->Left->emit($nec);
+                    }, $method->VTableSlotIndex);
+                else {
+                    $res = $ec->resolveMethodFunction($structType, $method);
+                    if ($res !== null) return new Overload($res->Function !== null ? $res->Function->FunctionType : null, function ($nec) use ($function, $res) {
+                        $function->Left->emit($nec);
+                        $nec->emit(OpCode::LoadConstant, Value::pointer($res->Address));
+                    });
+                    return Overload::error();
+                }
+            } else {
+                $ec->Report->error(119, "'" . $function->Left . "' is not valid for -> operator");
+                return Overload::error();
+            }
         } elseif ($function instanceof ScopeResolutionExpression) {
             $res = $ec->tryResolveQualifiedFunction($function->TypeName, $function->MemberName, $argTypes);
             if ($res !== null) return new Overload($res->VariableType, $res->VariableType instanceof CFunctionType ? [$res, 'emit'] : [$res, 'emitPointer']);
-            else { $ec->Report->error(103, "'" . $function . "' not found"); return Overload::error(); }
+            else {
+                $ec->Report->error(103, "'" . $function . "' not found");
+                return Overload::error();
+            }
         } elseif ($function instanceof VariableExpression) {
             $res = $ec->resolveVariable($function, $argTypes);
             if ($res !== null) return new Overload($res->VariableType, $res->VariableType instanceof CFunctionType ? [$res, 'emit'] : [$res, 'emitPointer']);
@@ -2169,25 +3310,56 @@ class FuncallExpression extends Expression
         }
     }
 
-    public function __toString(): string {
-        $sb = "" . $this->Function; $sb .= "("; $head = "";
-        foreach ($this->Arguments as $a) { $sb .= $head; $sb .= $a->__toString(); $head = ", "; }
-        $sb .= ")"; return $sb;
+    public function __toString(): string
+    {
+        $sb = "" . $this->Function;
+        $sb .= "(";
+        $head = "";
+        foreach ($this->Arguments as $a) {
+            $sb .= $head;
+            $sb .= $a->__toString();
+            $head = ", ";
+        }
+        $sb .= ")";
+        return $sb;
     }
 }
 
 class ScoredMethod
 {
-    public $Method; public $Score;
-    public function __construct($method, int $score) { $this->Method = $method; $this->Score = $score; }
+    public $Method;
+    public $Score;
+
+    public function __construct($method, int $score)
+    {
+        $this->Method = $method;
+        $this->Score = $score;
+    }
 }
 
 class Overload
 {
-    public $CType; public $emit; public $VTableSlotIndex;
-    public function __construct($type = null, $emit = null, $vTableSlotIndex = null) {
-        $this->CType = $type; $this->emit = $emit ?? function ($_) {}; $this->VTableSlotIndex = $vTableSlotIndex;
+    public $CType;
+    public $emit;
+    public $VTableSlotIndex;
+
+    public function __construct($type = null, $emit = null, $vTableSlotIndex = null)
+    {
+        $this->CType = $type;
+        $this->emit = $emit ?? function ($_) {
+        };
+        $this->VTableSlotIndex = $vTableSlotIndex;
     }
-    public static function noEmit(): callable { return function ($_) {}; }
-    public static function error(): Overload { return new Overload(CBasicType::$signedInt, function ($_) {}); }
+
+    public static function noEmit(): callable
+    {
+        return function ($_) {
+        };
+    }
+
+    public static function error(): Overload
+    {
+        return new Overload(CBasicType::$SignedInt, function ($_) {
+        });
+    }
 }
