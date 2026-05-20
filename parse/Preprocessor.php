@@ -369,14 +369,14 @@ class ResolvedVariable
     }
 }
 
-class CBasicType
+class PPCBasicType
 {
     public static $SignedInt;
 
     public static function init(): void
     {
         if (self::$SignedInt === null) {
-            self::$SignedInt = new CBasicType('int');
+            self::$SignedInt = new PPCBasicType('int');
         }
     }
 
@@ -388,4 +388,4 @@ class CBasicType
     }
 }
 
-CBasicType::init();
+PPCBasicType::init();

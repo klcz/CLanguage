@@ -70,143 +70,7 @@ class ParserInput
     }
 }
 
-class Token
-{
-    public $Kind;
-    public $Location;
-    public $EndLocation;
-    public $Value;
 
-    public function __construct(int $kind, $value = null, $location = null, $endLocation = null)
-    {
-        $this->Kind = $kind;
-        $this->Value = $value ?? '';
-        $this->Location = $location ?? Location::getNull();
-        $this->EndLocation = $endLocation ?? Location::getNull();
-    }
-
-    public static function fromChar(int $kind): Token
-    {
-        $t = new Token($kind, null);
-        $t->Location = Location::getNull();
-        $t->EndLocation = Location::getNull();
-        return $t;
-    }
-
-    public function getStringValue(): string
-    {
-        if (is_string($this->Value)) {
-            return $this->Value;
-        }
-        if ($this->Value !== null) {
-            return (string)$this->Value;
-        }
-        return '';
-    }
-
-    public function getText(): string
-    {
-        if ($this->Location->getIsNull() || $this->EndLocation->getIsNull()) {
-            return '';
-        }
-        return substr($this->Location->Document->Content, $this->Location->Index, $this->EndLocation->Index - $this->Location->Index);
-    }
-
-    public function asKind(int $kind): Token
-    {
-        return new Token($kind, $this->Value, $this->Location, $this->EndLocation);
-    }
-}
-
-
-class Location
-{
-    public $Document;
-    public $Index;
-    public $Line;
-    public $Column;
-
-    public function __construct($document = null, int $index = 0, int $line = 0, int $column = 0)
-    {
-        $this->Document = $document;
-        $this->Index = $index;
-        $this->Line = $line;
-        $this->Column = $column;
-    }
-
-    public function getIsNull(): bool
-    {
-        return $this->Document === null;
-    }
-
-    public static function getNull(): Location
-    {
-        return new Location(null, 0, 1, 1);
-    }
-
-    public function __toString(): string
-    {
-        if ($this->getIsNull()) {
-            return '?(?,?)';
-        }
-        return $this->Document . '(' . $this->Line . ',' . $this->Column . ')';
-    }
-
-    public function addOffset(int $columnOffset): Location
-    {
-        return new Location(
-            $this->Document,
-            $this->Index + $columnOffset,
-            $this->Line,
-            $this->Column + $columnOffset
-        );
-    }
-
-    public function equals(Location $y): bool
-    {
-        return $this->Line === $y->Line &&
-            $this->Column === $y->Column &&
-            ($this->Document !== null ? $this->Document->Path : null) === ($y->Document !== null ? $y->Document->Path : null);
-    }
-}
-
-
-class Document
-{
-    public $Path;
-    public $Content;
-    public $Encoding;
-
-    public function __construct(string $path, string $content, $encoding = null)
-    {
-        if (trim($path) === '') {
-            throw new \InvalidArgumentException('Document path must be specified');
-        }
-        $this->Path = $path;
-        $this->Content = $content;
-        $this->Encoding = $encoding ?? 'UTF-8';
-    }
-
-    public function getIsCompilable(): bool
-    {
-        $ext = strtolower(pathinfo($this->Path, PATHINFO_EXTENSION));
-        switch ($ext) {
-            case 'c':
-            case 'cpp':
-            case 'cxx':
-            case 'm':
-            case 'mpp':
-            case 'ino':
-                return true;
-        }
-        return false;
-    }
-
-    public function __toString(): string
-    {
-        return $this->Path;
-    }
-}
 
 
 class LexedDocument
@@ -452,7 +316,7 @@ class BlockContext extends EmitContext
 {
     public Block $Block;
 
-    public function extend(Block $block, EmitContext $parentContext): BlockContext
+    public function extendBlock(Block $block, EmitContext $parentContext): BlockContext
     {
         return new BlockContext($block, $parentContext->MachineInfo, $parentContext->Report, $parentContext->FunctionDecl, $parentContext);
     }

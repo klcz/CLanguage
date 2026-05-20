@@ -3,7 +3,7 @@
 namespace parse;
 
 
-include_once "./Types.class.php";
+include_once __DIR__ . "/Types.class.php";
 
 //============================================================================
 // Location
@@ -28,6 +28,11 @@ class Location
         return $this->Document === null;
     }
 
+    public function getIsNull(): bool
+    {
+        return $this->Document === null;
+    }
+
     public function __toString(): string
     {
         if ($this->isNull()) return "?(?,?)";
@@ -37,6 +42,16 @@ class Location
     public static function add(Location $location, int $columnOffset): Location
     {
         return new Location($location->Document, $location->Index + $columnOffset, $location->Line, $location->Column + $columnOffset);
+    }
+
+    public function addOffset(int $columnOffset): Location
+    {
+        return new Location($this->Document, $this->Index + $columnOffset, $this->Line, $this->Column + $columnOffset);
+    }
+
+    public static function getNull(): Location
+    {
+        return Location::$Null;
     }
 
     public static $Null;
