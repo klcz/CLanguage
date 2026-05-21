@@ -244,7 +244,10 @@ function convertLine(string $line): string
     $line = preg_replace('/\b(ConstantExpression|Expression|Statement|CBasicType|CPointerType|Location)\.(\w+)\b/', '$1::$$2', $line);
     $line = preg_replace('/\b(Unop|Binop|RelationalOp|LogicOp|TypeQualifiers|FunctionSpecifier|TypeSpecifierKind|StorageClassSpecifier|DeclarationsVisibility|VariableScope|Signedness|TokenKind)\.(\w+)\b/', '$1::$2', $line);
 
-    // === J. Method calls: .Method( -> ->Method( ===
+    // === J. Parenthesized expr member access: ($yyVals[...]).Property -> ($yyVals[...])->Property ===
+    $line = preg_replace('/\)\.([A-Z]\w*)/', ')->$1', $line);
+
+    // === K. Method calls: .Method( -> ->Method( ===
     $line = preg_replace('/\.Push\s*\(/', '->Push(', $line);
     $line = preg_replace('/\.ToBlock\s*\(/', '->toBlock(', $line);
     $line = preg_replace('/\.asKind\s*\(/', '->asKind(', $line);
@@ -290,6 +293,12 @@ function convertLine(string $line): string
             '\$' . $varName,
             $line
         );
+        // varName.Property -> $varName->Property  (C# member access)
+        $line = preg_replace(
+            '/(?<!\$)(?<!\w)' . preg_quote($varName, '/') . '\.([A-Z]\w*)/',
+            '\$' . $varName . '->$1',
+            $line
+        );
     }
 
     // === N. Fix $b/$l in case 65 (after $ prefixing) ===
@@ -309,6 +318,13 @@ function convertLine(string $line): string
 
     // === P. new Class; -> new Class() ===
     $line = preg_replace('/new\s+(\w+)\s*;/', 'new $1();', $line);
+
+    // === Q. new Foo(...)->method(  ->  (new Foo(...))->method(  (PHP 7.4 compat) ===
+    $line = preg_replace(
+        '/(new\s+\w+\s*\((?:[^()]|\([^()]*\))*\))\s*->(\w+\s*\()/',
+        '($1)->$2',
+        $line
+    );
 
     return $line;
 }
