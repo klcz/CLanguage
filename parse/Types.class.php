@@ -2,8 +2,124 @@
 
 namespace parse;
 
+interface yyInput
+{
+    public function advance(): bool;
 
-class ParserInput
+    public function token(): int;
+
+    public function value();
+}
+
+class yyException extends \Exception
+{
+    public function __construct(string $message)
+    {
+        parent::__construct($message);
+    }
+}
+
+class yyUnexpectedEof extends yyException
+{
+    public function __construct(string $message = '')
+    {
+        parent::__construct($message);
+    }
+}
+
+interface yyDebug
+{
+    public function push(int $state, $value): void;
+
+    public function lex(int $state, int $token, string $name, $value): void;
+
+    public function shift(int $from, int $to, int $errorFlag): void;
+
+    public function pop(int $state): void;
+
+    public function discard(int $state, int $token, string $name, $value): void;
+
+    public function reduce(int $from, int $to, int $rule, string $text, int $len): void;
+
+    public function goto2(int $from, int $to): void;
+
+    public function accept($value): void;
+
+    public function error(string $message): void;
+
+    public function reject(): void;
+}
+
+class yyDebugSimple implements yyDebug
+{
+    protected function println(string $s): void
+    {
+    }
+
+    public function push(int $state, $value): void
+    {
+        $this->println("push\tstate $state\tvalue " . (string)$value);
+    }
+
+    public function lex(int $state, int $token, string $name, $value): void
+    {
+        $this->println("lex\tstate $state\treading $name\tvalue " . (string)$value);
+    }
+
+    public function shift(int $from, int $to, int $errorFlag): void
+    {
+        switch ($errorFlag) {
+            default:
+                $this->println("shift\tfrom state $from to $to");
+                break;
+            case 0:
+            case 1:
+            case 2:
+                $this->println("shift\tfrom state $from to $to\t$errorFlag left to recover");
+                break;
+            case 3:
+                $this->println("shift\tfrom state $from to $to\ton error");
+                break;
+        }
+    }
+
+    public function pop(int $state): void
+    {
+        $this->println("pop\tstate $state\ton error");
+    }
+
+    public function discard(int $state, int $token, string $name, $value): void
+    {
+        $this->println("discard\tstate $state\ttoken $name\tvalue " . (string)$value);
+    }
+
+    public function reduce(int $from, int $to, int $rule, string $text, int $len): void
+    {
+        $this->println("reduce\tstate $from\tuncover $to\trule ($rule) $text");
+    }
+
+    public function goto2(int $from, int $to): void
+    {
+        $this->println("goto\tfrom state $from to $to");
+    }
+
+    public function accept($value): void
+    {
+        $this->println("accept\tvalue " . (string)$value);
+    }
+
+    public function error(string $message): void
+    {
+        $this->println("error\t$message");
+    }
+
+    public function reject(): void
+    {
+        $this->println('reject');
+    }
+}
+
+class ParserInput implements yyInput
 {
     public $Tokens;
     public $CurrentToken;
@@ -70,9 +186,6 @@ class ParserInput
     }
 }
 
-
-
-
 class LexedDocument
 {
     public $Document;
@@ -97,11 +210,6 @@ class LexedDocument
         $this->Tokens = $tokens;
     }
 }
-
-// ============================================================================
-// Dependency stubs (minimal definitions for types used by the type system)
-// ============================================================================
-
 
 class AbstractMessage
 {
@@ -275,7 +383,6 @@ class Report
         return $msg->Code . '|' . ($msg->Location->getIsNull() ? 'null' : $msg->Location->Line . ',' . $msg->Location->Column) . '|' . ($msg->IsWarning ? '1' : '0') . '|' . $msg->Text;
     }
 }
-
 
 class MachineInfo
 {
@@ -683,10 +790,6 @@ abstract class OpCode
     const ConvertPointerFloat64 = 289;
 }
 
-// ============================================================================
-// Value — 8-byte union analogue
-// ============================================================================
-
 class Value
 {
     public $float64Value = 0.0;
@@ -715,19 +818,11 @@ class Value
     }
 }
 
-// ============================================================================
-// Signedness
-// ============================================================================
-
 abstract class Signedness
 {
     const UNSIGNED = 0;
     const SIGNED = 1;
 }
-
-// ============================================================================
-// VTableEntry
-// ============================================================================
 
 class VTableEntry
 {
@@ -750,10 +845,6 @@ class VTableEntry
     }
 }
 
-// ============================================================================
-// VTable
-// ============================================================================
-
 class VTable
 {
     public $typeId = 0;
@@ -775,10 +866,6 @@ class VTable
     }
 }
 
-// ============================================================================
-// TypeHierarchyEntry
-// ============================================================================
-
 class TypeHierarchyEntry
 {
     public $typeId = 0;
@@ -797,10 +884,6 @@ class TypeHierarchyEntry
         return "TypeId={$this->typeId} Base={$this->baseTypeId} Name={$this->typeName}";
     }
 }
-
-// ============================================================================
-// Parameter (nested type of CFunctionType, defined here for ordering)
-// ============================================================================
 
 class Parameter
 {
@@ -821,10 +904,6 @@ class Parameter
         return (string)$this->parameterType . " " . $this->name;
     }
 }
-
-// ============================================================================
-// CType (abstract base)
-// ============================================================================
 
 abstract class CType
 {
@@ -899,10 +978,6 @@ abstract class CType
         throw new \RuntimeException("Cannot get CLR type from " . get_class($this));
     }
 }
-
-// ============================================================================
-// CBasicType (abstract)
-// ============================================================================
 
 abstract class CBasicType extends CType
 {
@@ -1056,10 +1131,6 @@ abstract class CBasicType extends CType
     }
 }
 
-// ============================================================================
-// CBoolType
-// ============================================================================
-
 class CBoolType extends CBasicType
 {
     protected $isIntegral = true;
@@ -1084,10 +1155,6 @@ class CBoolType extends CBasicType
         return "bool";
     }
 }
-
-// ============================================================================
-// CIntType
-// ============================================================================
 
 class CIntType extends CBasicType
 {
@@ -1177,10 +1244,6 @@ class CIntType extends CBasicType
     }
 }
 
-// ============================================================================
-// CFloatType
-// ============================================================================
-
 class CFloatType extends CBasicType
 {
     public $bits = 0;
@@ -1211,10 +1274,6 @@ class CFloatType extends CBasicType
         }
     }
 }
-
-// ============================================================================
-// CPointerType
-// ============================================================================
 
 class CPointerType extends CType
 {
@@ -1289,10 +1348,6 @@ class CPointerType extends CType
     }
 }
 
-// ============================================================================
-// CArrayType
-// ============================================================================
-
 class CArrayType extends CType
 {
     public $elementType;
@@ -1356,10 +1411,6 @@ class CArrayType extends CType
     }
 }
 
-// ============================================================================
-// CStructMember hierarchy
-// ============================================================================
-
 abstract class CStructMember
 {
     public $name = '';
@@ -1388,10 +1439,6 @@ class CStructMethod extends CStructMember
     public $isPureVirtual = false;
     public $vtableSlotIndex = null;
 }
-
-// ============================================================================
-// CStructType
-// ============================================================================
 
 class CStructType extends CType
 {
@@ -1632,10 +1679,6 @@ class CStructType extends CType
     }
 }
 
-// ============================================================================
-// CEnumMember
-// ============================================================================
-
 class CEnumMember
 {
     public $name = '';
@@ -1655,10 +1698,6 @@ class CEnumMember
         return "{$this->name} = {$this->value}";
     }
 }
-
-// ============================================================================
-// CEnumType
-// ============================================================================
 
 class CEnumType extends CType
 {
@@ -1695,10 +1734,6 @@ class CEnumType extends CType
         return CBasicType::$signedInt->getByteSize($c);
     }
 }
-
-// ============================================================================
-// CReferenceType
-// ============================================================================
 
 class CReferenceType extends CType
 {
@@ -1750,10 +1785,6 @@ class CReferenceType extends CType
     }
 }
 
-// ============================================================================
-// CVoidType
-// ============================================================================
-
 class CVoidType extends CType
 {
     public function __construct()
@@ -1792,10 +1823,6 @@ class CVoidType extends CType
         return 17;
     }
 }
-
-// ============================================================================
-// CFunctionType
-// ============================================================================
 
 class CFunctionType extends CType
 {

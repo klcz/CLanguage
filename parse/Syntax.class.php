@@ -2,12 +2,8 @@
 
 namespace parse;
 
-
 include_once __DIR__ . "/Types.class.php";
 
-//============================================================================
-// Location
-//============================================================================
 class Location
 {
     public $Document;
@@ -79,9 +75,6 @@ class Location
 
 Location::$Null = new Location();
 
-//============================================================================
-// Document
-//============================================================================
 class Document
 {
     public $Path;
@@ -118,9 +111,6 @@ class Document
     }
 }
 
-//============================================================================
-// ColorSpan & SyntaxColor
-//============================================================================
 class ColorSpan
 {
     public $Index = 0;
@@ -145,9 +135,6 @@ abstract class SyntaxColor
     const Type = 7;
 }
 
-//============================================================================
-// Token
-//============================================================================
 class Token
 {
     public $Kind;
@@ -206,9 +193,6 @@ class Token
     }
 }
 
-//============================================================================
-// VariableScope
-//============================================================================
 abstract class VariableScope
 {
     const Local = 0;
@@ -218,9 +202,6 @@ abstract class VariableScope
     const Constant = 4;
 }
 
-//============================================================================
-// Statement (abstract base)
-//============================================================================
 abstract class Statement
 {
     public $Location;
@@ -245,9 +226,6 @@ abstract class Statement
     public abstract function addDeclarationToBlock($context): void;
 }
 
-//============================================================================
-// Enums for operators
-//============================================================================
 abstract class Binop
 {
     const Add = 0;
@@ -331,9 +309,6 @@ abstract class DeclarationsVisibility
     const Protected = 2;
 }
 
-//============================================================================
-// Expression (abstract base)
-//============================================================================
 
 abstract class Expression
 {
@@ -632,9 +607,6 @@ abstract class Expression
     }
 }
 
-//============================================================================
-// Forward declarations (needed by some expressions)
-//============================================================================
 class ConstantExpression extends Expression
 {
     public $Value;
@@ -841,9 +813,6 @@ class VariableExpression extends Expression
     }
 }
 
-//============================================================================
-// Block (compound statement)
-//============================================================================
 
 class Block extends Statement
 {
@@ -922,9 +891,6 @@ class Block extends Statement
     }
 }
 
-//============================================================================
-// TranslationUnit
-//============================================================================
 class TranslationUnit extends Block
 {
     public $Name;
@@ -942,9 +908,6 @@ class TranslationUnit extends Block
     }
 }
 
-//============================================================================
-// BinaryExpression
-//============================================================================
 class BinaryExpression extends Expression
 {
     public $Left;
@@ -1099,9 +1062,6 @@ class BinaryExpression extends Expression
     }
 }
 
-//============================================================================
-// UnaryExpression
-//============================================================================
 class UnaryExpression extends Expression
 {
     public $Op;
@@ -1226,9 +1186,6 @@ class UnaryExpression extends Expression
     }
 }
 
-//============================================================================
-// CastExpression
-//============================================================================
 class CastExpression extends Expression
 {
     public $TypeName;
@@ -1254,9 +1211,6 @@ class CastExpression extends Expression
     }
 }
 
-//============================================================================
-// AddressOfExpression
-//============================================================================
 class AddressOfExpression extends Expression
 {
     public $InnerExpression;
@@ -1277,9 +1231,6 @@ class AddressOfExpression extends Expression
     }
 }
 
-//============================================================================
-// DereferenceExpression
-//============================================================================
 class DereferenceExpression extends Expression
 {
     public $InnerExpression;
@@ -1314,9 +1265,6 @@ class DereferenceExpression extends Expression
     }
 }
 
-//============================================================================
-// ArrayElementExpression
-//============================================================================
 class ArrayElementExpression extends Expression
 {
     public $Array;
@@ -1379,9 +1327,6 @@ class ArrayElementExpression extends Expression
     }
 }
 
-//============================================================================
-// AssignExpression
-//============================================================================
 class AssignExpression extends Expression
 {
     public $Left;
@@ -1485,9 +1430,6 @@ class AssignExpression extends Expression
     }
 }
 
-//============================================================================
-// ConditionalExpression
-//============================================================================
 class ConditionalExpression extends Expression
 {
     public $Condition;
@@ -1521,9 +1463,6 @@ class ConditionalExpression extends Expression
     }
 }
 
-//============================================================================
-// LogicExpression
-//============================================================================
 class LogicExpression extends Expression
 {
     public $Left;
@@ -1569,9 +1508,6 @@ class LogicExpression extends Expression
     }
 }
 
-//============================================================================
-// RelationalExpression
-//============================================================================
 class RelationalExpression extends Expression
 {
     public $Left;
@@ -1685,9 +1621,6 @@ class RelationalExpression extends Expression
     }
 }
 
-//============================================================================
-// MemberFromReferenceExpression
-//============================================================================
 class MemberFromReferenceExpression extends Expression
 {
     public $Left;
@@ -1787,9 +1720,6 @@ class MemberFromReferenceExpression extends Expression
     }
 }
 
-//============================================================================
-// MemberFromPointerExpression
-//============================================================================
 class MemberFromPointerExpression extends Expression
 {
     public $Left;
@@ -1890,9 +1820,6 @@ class MemberFromPointerExpression extends Expression
     }
 }
 
-//============================================================================
-// ScopeResolutionExpression
-//============================================================================
 class ScopeResolutionExpression extends Expression
 {
     public $TypeName;
@@ -1926,9 +1853,6 @@ class ScopeResolutionExpression extends Expression
     }
 }
 
-//============================================================================
-// SequenceExpression
-//============================================================================
 class SequenceExpression extends Expression
 {
     public $First;
@@ -1958,9 +1882,6 @@ class SequenceExpression extends Expression
     }
 }
 
-//============================================================================
-// SizeOfExpression
-//============================================================================
 class SizeOfExpression extends Expression
 {
     public $Query;
@@ -1981,9 +1902,6 @@ class SizeOfExpression extends Expression
     }
 }
 
-//============================================================================
-// SizeOfTypeExpression
-//============================================================================
 class SizeOfTypeExpression extends Expression
 {
     public $TypeName;
@@ -2004,9 +1922,6 @@ class SizeOfTypeExpression extends Expression
     }
 }
 
-//============================================================================
-// StructureExpression / StructureExpressionItem
-//============================================================================
 class StructureExpression extends Expression
 {
     public $Items;
@@ -2047,9 +1962,6 @@ class StructureExpressionItem
     }
 }
 
-//============================================================================
-// Statement subclasses
-//============================================================================
 class IfStatement extends Statement
 {
     public $Condition;
@@ -2516,9 +2428,6 @@ class LabeledStatement extends Statement
     }
 }
 
-//============================================================================
-// Declaration / Declarator
-//============================================================================
 abstract class Declaration extends Statement
 {
     public $Specifiers;
@@ -2686,9 +2595,6 @@ class ReferenceDeclarator extends Declarator
     }
 }
 
-//============================================================================
-// Initializer
-//============================================================================
 abstract class Initializer
 {
     public $Designation;
@@ -2739,9 +2645,6 @@ class InitializerDesignator
 {
 }
 
-//============================================================================
-// TypeName, TypeSpecifier, ParameterDeclaration
-//============================================================================
 class TypeName
 {
     public $Specifiers;
@@ -2816,9 +2719,6 @@ class VarParameter extends ParameterDeclaration
     }
 }
 
-//============================================================================
-// FunctionDefinition
-//============================================================================
 class FunctionDefinition extends Statement
 {
     public $Specifiers;
@@ -2861,9 +2761,6 @@ class FunctionDefinition extends Statement
     }
 }
 
-//============================================================================
-// DeclarationSpecifiers / InitDeclarator / MultiDeclaratorStatement
-//============================================================================
 class DeclarationSpecifiers
 {
     public $StorageClassSpecifier = StorageClassSpecifier::None;
@@ -3062,9 +2959,6 @@ class MultiDeclaratorStatement extends Statement
     }
 }
 
-//============================================================================
-// VirtualDeclarationStatement
-//============================================================================
 class VirtualDeclarationStatement extends Statement
 {
     public $InnerDeclaration;
@@ -3091,9 +2985,6 @@ class VirtualDeclarationStatement extends Statement
     }
 }
 
-//============================================================================
-// VisibilityStatement
-//============================================================================
 class VisibilityStatement extends Statement
 {
     public $Visibility;
@@ -3117,9 +3008,6 @@ class VisibilityStatement extends Statement
     }
 }
 
-//============================================================================
-// BaseSpecifier
-//============================================================================
 class BaseSpecifier
 {
     public $Name;
@@ -3152,9 +3040,6 @@ class BaseSpecifier
     }
 }
 
-//============================================================================
-// Overload / ScoredMethod (used by FuncallExpression)
-//============================================================================
 class FuncallExpression extends Expression
 {
     public $Function;
