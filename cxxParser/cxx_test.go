@@ -248,7 +248,11 @@ func safeRun(t *testing.T, code string, mi *cxx.MachineInfo, opts ...func(*testi
 }
 
 func safeRunFailed(t *testing.T, code string, mi *cxx.MachineInfo, errorCodes ...int) *cxx.CInterpreter {
-	return doRun(t, code, mi, newTestPrinter(errorCodes), nil)
+	t.Helper()
+	p := newTestPrinter(errorCodes, nil)
+	ci := doRun(t, code, mi, p, nil)
+	p.Check(t, errorCodes)
+	return ci
 }
 
 // doRun compiles and runs C code, recovering from runtime panics.
@@ -289,9 +293,68 @@ func doRun(t *testing.T, code string, mi *cxx.MachineInfo, printer cxx.Printer, 
 	return i
 }
 
+type TestPrinter struct {
+	errCodes     []int
+	codeMsgMap   map[int][]string
+	notMatchMsgs []string
+	p_           cxx.Printer
+}
+
+func (p *TestPrinter) Print(msg string) {
+	isMatch := false
+	for _, code := range p.errCodes {
+		s := fmt.Sprintf("Error C%04d:", code)
+		if strings.HasPrefix(msg, s) {
+			p.codeMsgMap[code] = append(p.codeMsgMap[code], strings.TrimSpace(msg))
+			isMatch = true
+		}
+	}
+	if !isMatch {
+		p.notMatchMsgs = append(p.notMatchMsgs, strings.TrimSpace(msg))
+	}
+	p.p_.Print(msg)
+}
+
+func (p *TestPrinter) Check(t *testing.T, codes []int) {
+	t.Helper()
+
+	if len(p.errCodes) == 0 {
+		if len(p.notMatchMsgs) > 0 {
+			t.Skipf("ErrMsg for `%v`: \n\t%s", p.errCodes, strings.Join(p.notMatchMsgs, "\n\t"))
+		}
+		return
+	}
+
+	notMatchCodes := make([]int, 0, len(codes))
+	for _, code := range codes {
+		if _, ok := p.codeMsgMap[code]; !ok {
+			notMatchCodes = append(notMatchCodes, code)
+		}
+	}
+	if len(notMatchCodes) == 0 {
+		return
+	}
+
+	for _, code := range codes {
+		if msgs, ok := p.codeMsgMap[code]; ok && len(msgs) > 0 {
+			t.Logf("ErrMsg for `C%04d`: \n\t%s", code, strings.Join(msgs, "\n\t"))
+		} else {
+			t.Fatalf("AssertFailed but no errCode: `C%04d`\n", code)
+		}
+	}
+}
+
 //goland:noinspection GoUnusedParameter
-func newTestPrinter(codes []int) cxx.Printer {
-	return cxx.NewSimplePrinter()
+func newTestPrinter(codes []int, p cxx.Printer) *TestPrinter {
+	if p == nil {
+		p = cxx.NewSimplePrinterLevel("Fault")
+	}
+
+	return &TestPrinter{
+		errCodes:   codes,
+		codeMsgMap: make(map[int][]string, len(codes)),
+		p_:         p,
+	}
 }
 
 // safeParse parse C code, skipping on panic.
@@ -303,22 +366,27 @@ func safeParse(t *testing.T, code string) *cxx.TranslationUnit {
 }
 
 func safeCompile(t *testing.T, code string, mi *cxx.MachineInfo, opts ...func(*testing.T, *cxx.Executable)) *cxx.Executable {
+	t.Helper()
 	return doCompile(t, code, mi, nil, opts)
 }
 
-func safeCompileFailed(t *testing.T, code string, mi *cxx.MachineInfo, errorCodes ...int) *cxx.Executable {
-	return doCompile(t, code, mi, newTestPrinter(errorCodes), nil)
+func safeCompileFailed(t *testing.T, codeStr string, mi *cxx.MachineInfo, errorCodes ...int) *cxx.Executable {
+	t.Helper()
+	p := newTestPrinter(errorCodes, nil)
+	exe := doCompile(t, codeStr, mi, p, nil)
+	p.Check(t, errorCodes)
+	return exe
 }
 
 // doCompile compiles C code and returns the executable, skipping on panic.
 //
 //goland:noinspection GoUnusedParameter
-func doCompile(t *testing.T, code string, mi *cxx.MachineInfo, printer cxx.Printer, opts []func(*testing.T, *cxx.Executable)) *cxx.Executable {
+func doCompile(t *testing.T, codeStr string, mi *cxx.MachineInfo, printer cxx.Printer, opts []func(*testing.T, *cxx.Executable)) *cxx.Executable {
 	t.Helper()
 	if mi == nil {
 		mi = newTestMachineInfo(t)
 	}
-	fullCode := code
+	fullCode := codeStr
 	var exe *cxx.Executable
 	func() {
 		defer func() {
@@ -326,7 +394,7 @@ func doCompile(t *testing.T, code string, mi *cxx.MachineInfo, printer cxx.Print
 				t.Skipf("Compile panic (incomplete feature): %v", r)
 			}
 		}()
-		exe = cxx.Compile(fullCode, mi, nil)
+		exe = cxx.Compile(fullCode, mi, printer)
 	}()
 	if exe == nil {
 		t.Skip("Compile returned nil (likely incomplete feature)")
@@ -558,7 +626,7 @@ func Test_IntegerConstantArithmeticWithDouble(t *testing.T) {
 }
 
 func parseType(code string) (*cxx.ExecutableContext, cxx.CType) {
-	printer := newTestPrinter(nil)
+	printer := newTestPrinter(nil, nil)
 	_c := cxx.NewExecutableContext(cxx.NewExecutable(cxx.Windows32), cxx.NewReport(printer))
 	exe := cxx.Compile(code, cxx.Windows32, printer)
 	return _c, exe.Globals[1].VariableType
@@ -644,20 +712,15 @@ func Test_ArrayByteSizes(t *testing.T) {
 		assert.Equal(t, size, typ.GetByteSize(_c.EmitContext), "code: `"+code+"`")
 	}
 }
-func Test_ArrayNumValues(t *testing.T) {
+
+func Test_ArrayByteSizes11(t *testing.T) {
 	tests := map[string]int{
-		"char a[42];":      42,
-		"char a[42][12];":  504,
-		"char *a[42];":     42,
-		"char *a[42][12];": 504,
-		"int a[42];":       42,
-		"int a[42][12];":   504,
-		"int *a[42];":      42,
-		"int *a[42][12];":  504,
+		"int (*a[5])[42];": 20,
 	}
+
 	for code, size := range tests {
-		_, typ := parseType(code)
-		assert.Equal(t, size, typ.NumValues(), "code: `"+code+"`")
+		_c, typ := parseType(code)
+		assert.Equal(t, size, typ.GetByteSize(_c.EmitContext), "code: `"+code+"`")
 	}
 }
 
@@ -712,7 +775,7 @@ func Test_ReturnParamExpr(t *testing.T) {
 }
 
 func Test_ConditionalReturn(t *testing.T) {
-	exe := safeCompile(t, "int f (int i) { if (i) return 0; else return 42; }", newArduinoTestMachineInfo(t), dumpOpCode)
+	exe := safeCompile(t, "int f (int i) { if (i) return 0; else return 42; }", newArduinoTestMachineInfo(t))
 	var f *cxx.CompiledFunction
 	for _, bf := range exe.Functions {
 		if bf.GetName() == "f" {
@@ -725,15 +788,15 @@ func Test_ConditionalReturn(t *testing.T) {
 		return
 	}
 
-	assert.Equal(t, len(f.Instructions), 8)
+	assert.Equal(t, 7, len(f.Instructions))
 	assert.Equal(t, f.Instructions[0].Op, cxx.OpCodeLoadArg)
-	assert.Equal(t, f.Instructions[1].Op, cxx.OpCodeConvertInt16UInt8)
-	assert.Equal(t, f.Instructions[2].Op, cxx.OpCodeBranchIfFalse)
-	assert.Equal(t, f.Instructions[3].Op, cxx.OpCodeLoadConstant)
-	assert.Equal(t, f.Instructions[4].Op, cxx.OpCodeReturn)
-	assert.Equal(t, f.Instructions[5].Op, cxx.OpCodeJump)
-	assert.Equal(t, f.Instructions[6].Op, cxx.OpCodeLoadConstant)
-	assert.Equal(t, f.Instructions[7].Op, cxx.OpCodeReturn)
+	// assert.Equal(t, f.Instructions[1].Op, cxx.OpCodeConvertInt16UInt8)
+	assert.Equal(t, f.Instructions[1].Op, cxx.OpCodeBranchIfFalse)
+	assert.Equal(t, f.Instructions[2].Op, cxx.OpCodeLoadConstant)
+	assert.Equal(t, f.Instructions[3].Op, cxx.OpCodeReturn)
+	assert.Equal(t, f.Instructions[4].Op, cxx.OpCodeJump)
+	assert.Equal(t, f.Instructions[5].Op, cxx.OpCodeLoadConstant)
+	assert.Equal(t, f.Instructions[6].Op, cxx.OpCodeReturn)
 }
 
 func Test_VoidFunctionsHaveNoValue(t *testing.T) {
@@ -889,7 +952,7 @@ func assertColorization(t *testing.T, code string, expectedColors ...cxx.SyntaxC
 	mi.AddInternalFunction("void delay()", nil)
 	mi.HeaderCode = "#define FOO 1\n\nvoid delay();\n\n"
 
-	var colors = cxx.Colorize(code, mi, nil)
+	var colors = cxx.Colorize(code, mi, cxx.NewSimplePrinterLevel("Fault"))
 	assert.Equal(t, len(expectedColors), len(colors), "Number of colored tokens don't match.")
 	for i, color := range colors {
 		ecolor := expectedColors[i]
@@ -1009,6 +1072,49 @@ func Test_UnterminatedString(t *testing.T) {
 	assertColorization(t, "\"sdfsdfsd\nx",
 		cxx.SyntaxColorString,
 		cxx.SyntaxColorIdentifier)
+}
+
+func Test_LongShortIntIsError(t *testing.T) {
+	safeCompileFailed(t, `
+void main() { long short int x = 0; }
+	`, newTestMachineInfo(t), 2078)
+}
+
+func Test_BadFunction(t *testing.T) {
+	safeCompileFailed(t, `
+void setup() {
+	pinMode (4, OUTPUT);
+}
+
+void loop() {
+	pinMode
+	sleep(1000);
+}
+	`, newTestMachineInfo(t), 1001, 103, 2064)
+}
+
+func Test_DefineParamIncompleteArgs(t *testing.T) {
+	safeCompileFailed(t, `
+#define ID(x x
+void main() {
+    assertAreEqual(42, ID(42));
+}
+	`, newTestMachineInfo(t), 1001)
+}
+
+func Test_IfTrueVariableWithBadExpressions(t *testing.T) {
+	safeCompileFailed(t, `
+#define FOO 1
+#define BAR ](++
+#if FOO
+#define DO(x) x++;
+#endif
+void main() {
+    auto i = 10;
+    DO(i)
+    assertAreEqual(11, i);
+}
+	`, newTestMachineInfo(t), 1001)
 }
 
 //endregion

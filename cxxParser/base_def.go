@@ -353,6 +353,7 @@ type Printer interface {
 }
 
 type SimplePrinter struct {
+	LogLevel     string
 	WarningCount int
 	ErrorCount   int
 }
@@ -361,8 +362,36 @@ func NewSimplePrinter() *SimplePrinter {
 	return &SimplePrinter{}
 }
 
+func NewSimplePrinterLevel(logLevel string) *SimplePrinter {
+	return &SimplePrinter{
+		LogLevel: logLevel,
+	}
+}
+
 func (p *SimplePrinter) Print(msg string) {
-	fmt.Print(msg)
+	if len(p.LogLevel) == 0 {
+		fmt.Print(msg)
+		return
+	}
+
+	doPrint := false
+	if p.LogLevel == "Fault" {
+		doPrint = strings.HasPrefix(msg, "Fault")
+	} else if p.LogLevel == "Error" {
+		doPrint = strings.HasPrefix(msg, "Fault") || strings.HasPrefix(msg, "Error")
+	} else if p.LogLevel == "Warning" {
+		doPrint = strings.HasPrefix(msg, "Fault") || strings.HasPrefix(msg, "Error") ||
+			strings.HasPrefix(msg, "Warning")
+	} else if p.LogLevel == "Info" {
+		doPrint = strings.HasPrefix(msg, "Fault") || strings.HasPrefix(msg, "Error") ||
+			strings.HasPrefix(msg, "Warning") || strings.HasPrefix(msg, "Info")
+	} else if p.LogLevel == "Debug" {
+		doPrint = true
+	}
+
+	if doPrint {
+		fmt.Print(msg)
+	}
 }
 
 type SavedPrinter struct {

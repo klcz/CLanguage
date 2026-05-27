@@ -357,25 +357,6 @@ func Test_FunctionPointerReturn(t *testing.T) {
 	assert.Equal(t, 0, len(f.GetFunctionType().Parameters()))
 }
 
-func Test_LongShortIntIsError(t *testing.T) {
-	mi := newTestMachineInfo(t)
-	code := "void main() { long short int x = 0; }"
-	fullCode := "void start() { __cinit(); main(); } " + code
-
-	report := NewReport(nil)
-	c := NewCCompiler(NewCompilerOptions(mi, report, []*Document{
-		NewDocument(DefaultCodePath, fullCode),
-	}))
-	exe := c.Compile()
-
-	errs := report.Errors()
-	if len(errs) == 0 {
-		_ = report
-		t.Skip("Compile did not produce errors (feature may not error-check yet)")
-	}
-	_ = exe
-}
-
 //endregion
 
 //region ---- integer_test ----
@@ -1127,9 +1108,8 @@ func Test_SimpleStructFieldOffsets(t *testing.T) {
 
 func Test_FieldAccessorNumValues(t *testing.T) {
 	s := NewCStructType("S")
-	five := 5
 	s.Members = append(s.Members, NewCStructField("x", SignedInt))
-	s.Members = append(s.Members, NewCStructField("arr", NewCArrayType(SignedInt, &five)))
+	s.Members = append(s.Members, NewCStructField("arr", NewCArrayType(SignedInt, new(5))))
 	s.Members = append(s.Members, NewCStructField("y", Float))
 
 	layout := NewStructLayout(s)

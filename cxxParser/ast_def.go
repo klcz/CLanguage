@@ -247,6 +247,7 @@ func NewExpressionStatement(expr Expression) *ExpressionStatement {
 
 func (s *ExpressionStatement) AlwaysReturns() bool { return false }
 
+//goland:noinspection GoUnusedParameter
 func (s *ExpressionStatement) AddDeclarationToBlock(ctx *BlockContext) {}
 
 func (s *ExpressionStatement) DoEmit(ec *EmitContext) {
@@ -396,6 +397,7 @@ func sanitizeName(filePath string) string {
 	return filePath
 }
 
+//goland:noinspection GoUnusedParameter
 func (tu *TranslationUnit) AddDeclarationToBlock(ctx *BlockContext) {}
 
 // ── ScopeResolutionExpression ────────────────────────────────────────────────
@@ -644,6 +646,7 @@ func (s *IfStatement) AlwaysReturns() bool {
 	return false
 }
 
+//goland:noinspection GoUnusedParameter
 func (s *IfStatement) AddDeclarationToBlock(ctx *BlockContext) {}
 
 func (s *IfStatement) DoEmit(ec *EmitContext) {
@@ -711,6 +714,7 @@ func (s *SwitchStatement) AlwaysReturns() bool {
 	return len(s.Cases) > 0
 }
 
+//goland:noinspection GoUnusedParameter
 func (s *SwitchStatement) AddDeclarationToBlock(ctx *BlockContext) {}
 
 func (s *SwitchStatement) DoEmit(ec *EmitContext) {
@@ -786,6 +790,7 @@ func NewWhileStatement(isDoWhile bool, cond Expression, body *Block) *WhileState
 
 func (s *WhileStatement) AlwaysReturns() bool { return false }
 
+//goland:noinspection GoUnusedParameter
 func (s *WhileStatement) AddDeclarationToBlock(ctx *BlockContext) {}
 
 func (s *WhileStatement) DoEmit(ec *EmitContext) {
@@ -909,9 +914,16 @@ func NewGotoStatement(label string, location Location) *GotoStatement {
 
 func (s *GotoStatement) AlwaysReturns() bool { return false }
 
+//goland:noinspection GoUnusedParameter
 func (s *GotoStatement) AddDeclarationToBlock(ctx *BlockContext) {}
 
 func (s *GotoStatement) DoEmit(ec *EmitContext) {
+	f := ec.GetFunctionDecl()
+	if f == nil {
+		ec.GetReport().Error(9999, "goto statement used outside of function body")
+		return
+	}
+	
 	lbl := ec.self.ResolveGotoLabel(s.Label)
 	if lbl == nil {
 		ec.GetReport().Error(107, fmt.Sprintf("undefined label '%s'", s.Label))
@@ -934,13 +946,17 @@ func NewContinueStatement() *ContinueStatement { return &ContinueStatement{} }
 
 func (s *ContinueStatement) AlwaysReturns() bool { return false }
 
+//goland:noinspection GoUnusedParameter
 func (s *ContinueStatement) AddDeclarationToBlock(ctx *BlockContext) {}
 
 func (s *ContinueStatement) DoEmit(ec *EmitContext) {
 	lbl := ec.self.ContinueLabel()
 	if lbl != nil {
 		ec.EmitBranchP(OpCodeJump, lbl)
+		return
 	}
+	
+	ec.GetReport().Error(139, "No enclosing statement out of which to continue")
 }
 
 func (s *ContinueStatement) Emit(ec *EmitContext) { s.DoEmit(ec) }
@@ -957,13 +973,17 @@ func NewBreakStatement() *BreakStatement { return &BreakStatement{} }
 
 func (s *BreakStatement) AlwaysReturns() bool { return false }
 
+//goland:noinspection GoUnusedParameter
 func (s *BreakStatement) AddDeclarationToBlock(ctx *BlockContext) {}
 
 func (s *BreakStatement) DoEmit(ec *EmitContext) {
 	lbl := ec.self.BreakLabel()
 	if lbl != nil {
 		ec.EmitBranchP(OpCodeJump, lbl)
+		return
 	}
+
+	ec.GetReport().Error(139, "No enclosing statement out of which to break")
 }
 
 func (s *BreakStatement) Emit(ec *EmitContext) { s.DoEmit(ec) }
@@ -985,15 +1005,31 @@ func NewReturnValueStatement(value Expression) *ReturnStatement {
 
 func (s *ReturnStatement) AlwaysReturns() bool { return true }
 
+//goland:noinspection GoUnusedParameter
 func (s *ReturnStatement) AddDeclarationToBlock(ctx *BlockContext) {}
 
 func (s *ReturnStatement) DoEmit(ec *EmitContext) {
-	if s.Value != nil {
-		s.Value.Emit(ec)
-	} else {
-		ec.Emit(OpCodeLoadConstant, ValueOf(0))
+	f := ec.GetFunctionDecl()
+	if f == nil {
+		ec.GetReport().Error(1519, "Invalid return outside of function")
+		return
 	}
-	ec.Emit(OpCodeReturn, ValueOf(0))
+
+	if s.Value != nil {
+		if f.FunctionType.ReturnType.IsVoid() {
+			ec.GetReport().Error(127, "A return keyword must not be followed by any expression when the function returns void")
+		} else {
+			s.Value.Emit(ec)
+			ec.EmitCast(s.Value.GetEvaluatedCType(ec), f.FunctionType.ReturnType)
+			ec.Emit(OpCodeReturn, ValueOf(0))
+		}
+	} else {
+		if f.FunctionType.ReturnType.IsVoid() {
+			ec.Emit(OpCodeReturn, ValueOf(0))
+		} else {
+			ec.GetReport().Error(126, "A value is required for the return statement")
+		}
+	}
 }
 
 func (s *ReturnStatement) Emit(ec *EmitContext) { s.DoEmit(ec) }
@@ -1023,6 +1059,7 @@ func NewLabeledStatement(label string, stmt Statement, location Location) *Label
 
 func (s *LabeledStatement) AlwaysReturns() bool { return s.Statement.AlwaysReturns() }
 
+//goland:noinspection GoUnusedParameter
 func (s *LabeledStatement) AddDeclarationToBlock(ctx *BlockContext) {}
 
 func (s *LabeledStatement) DoEmit(ec *EmitContext) {

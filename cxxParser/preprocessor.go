@@ -297,7 +297,7 @@ func (p *Preprocessor) preprocessIteration(defines map[string]*Define, include P
 			case "if", "ifdef", "ifndef":
 				isTrue := true
 				if tokenValueString == "if" {
-					isTrue = evalIfCondition(defines, (*tokens)[i+2:eol])
+					isTrue = evalIfCondition(report, defines, (*tokens)[i+2:eol])
 				} else {
 					isDefined := false
 					if i+2 < len(*tokens) {
@@ -431,11 +431,10 @@ func readDefineArgs(startIndex int, tokens []Token) ([]*Define, int) {
 
 // evalIfCondition evaluates a preprocessor #if expression.
 // It uses the C parser to compile the expression as C code and evaluates it.
-func evalIfCondition(defines map[string]*Define, tokens []Token) bool {
+func evalIfCondition(report *Report, defines map[string]*Define, tokens []Token) bool {
 	defer func() {
 		recover()
 	}()
-	report := NewReport(nil)
 	expressions := make(map[string]Expression)
 	for _, d := range defines {
 		if len(d.Body) == 0 {

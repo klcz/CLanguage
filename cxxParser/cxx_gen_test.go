@@ -1627,7 +1627,7 @@ func Test_InterpreterTests_AintNoLoopForBreak(t *testing.T) {
 void main () {
     break;
 }
-	`, newArduinoTestMachineInfo(t))
+	`, newArduinoTestMachineInfo(t), 139)
 }
 
 func Test_InterpreterTests_AintNoLoopForContinue(t *testing.T) {
@@ -1635,7 +1635,7 @@ func Test_InterpreterTests_AintNoLoopForContinue(t *testing.T) {
 void main () {
     continue;
 }
-	`, newArduinoTestMachineInfo(t))
+	`, newArduinoTestMachineInfo(t), 139)
 }
 
 func Test_InterpreterTests_ForLoopWithContinue(t *testing.T) {

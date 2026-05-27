@@ -62,21 +62,6 @@ void f() {
 	assert.Equal(t, "f", fd.Declarator.DeclaredIdentifier())
 }
 
-func Test_BadFunction(t *testing.T) {
-	code := `
-void setup() {
-	pinMode (4, OUTPUT);
-}
-
-void loop() {
-	pinMode
-	sleep(1000);
-}`
-	report := NewReport(nil)
-	_ = ParseTranslationUnit(code, report)
-	assert.True(t, len(report.Errors()) > 0, "Should have compilation errors")
-}
-
 func Test_ForLoopWithThreeInits(t *testing.T) {
 	code := `
 void f () {
@@ -444,19 +429,6 @@ void main() {}
 	assert.Equal(t, 5, len(exe.Globals))
 }
 
-func Test_DefineParamIncompleteArgs(t *testing.T) {
-	code := `
-#define ID(x x
-void main() {
-    assertAreEqual(42, ID(42));
-}
-`
-	fullCode := "void start() { __cinit(); main(); } " + code
-	report := NewReport(nil)
-	_ = ParseTranslationUnit(fullCode, report)
-	assert.True(t, len(report.Errors()) > 0, "Should have compilation errors")
-}
-
 //region --- PreprocessorTests ---
 
 // ============================================================================
@@ -631,21 +603,6 @@ void main() {
 func Test_IfTrueVariable(t *testing.T) {
 	runCode(t, `
 #define FOO 1
-#if FOO
-#define DO(x) x++;
-#endif
-void main() {
-    auto i = 10;
-    DO(i)
-    assertAreEqual(11, i);
-}
-	`, newTestMachineInfo(t))
-}
-
-func Test_IfTrueVariableWithBadExpressions(t *testing.T) {
-	runCode(t, `
-#define FOO 1
-#define BAR ](++
 #if FOO
 #define DO(x) x++;
 #endif
@@ -881,5 +838,5 @@ void main () {
     assertAreEqual ('r', bar[2]);
     assertAreEqual (0, bar[3]);
 }
-	`, newArduinoTestMachineInfo(t), dumpOpCode)
+	`, newArduinoTestMachineInfo(t))
 }
