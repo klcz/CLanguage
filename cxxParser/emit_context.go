@@ -51,9 +51,11 @@ type EmitContextSelf interface {
 	GetFunctionDecl() *CompiledFunction
 
 	TryResolveVariable(name string, argTypes []CType) *ResolvedVariable
-	ResolveMethodFunction(structType *CStructType, method *CStructMethod) *ResolvedVariable
 	TryResolveOperatorFunction(structName string, operatorName string, argTypes []CType) *ResolvedVariable
 	TryResolveQualifiedFunction(nameContext string, name string, argTypes []CType) *ResolvedVariable
+
+	ResolveMethodFunction(structType *CStructType, method *CStructMethod, resolve TypeResolve) *ResolvedVariable
+
 	BeginBlock(b *Block)
 	EndBlock()
 	AllocateTemp(ctype CType) int
@@ -67,6 +69,10 @@ type EmitContextSelf interface {
 
 	BreakLabel() *Label
 	ContinueLabel() *Label
+}
+
+type TypeResolve interface {
+	ResolveTypeNameString(typeName string) CType
 }
 
 // ============================================================================
@@ -169,9 +175,9 @@ func (ec *EmitContext) TryResolveVariable(name string, argTypes []CType) *Resolv
 	return nil
 }
 
-func (ec *EmitContext) ResolveMethodFunction(structType *CStructType, method *CStructMethod) *ResolvedVariable {
+func (ec *EmitContext) ResolveMethodFunction(structType *CStructType, method *CStructMethod, resolve TypeResolve) *ResolvedVariable {
 	if ec.parentCtx != nil {
-		return ec.parentCtx.self.ResolveMethodFunction(structType, method)
+		return ec.parentCtx.self.ResolveMethodFunction(structType, method, resolve)
 	}
 	panic("Cannot resolve method function")
 }

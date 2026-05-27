@@ -15,6 +15,12 @@ func dumpOpCode(t *testing.T, exe *cxx.Executable) {
 	t.Logf("DumpOp: \n%s", dump)
 }
 
+//goland:noinspection GoUnusedFunction
+func dumpOpCodeAll(t *testing.T, exe *cxx.Executable) {
+	dump := exe.DumpOp(true)
+	t.Logf("DumpOp: \n%s", dump)
+}
+
 // region --- calc ---
 
 //goland:noinspection GoUnusedExportedType

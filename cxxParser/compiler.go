@@ -236,12 +236,20 @@ func NewExecutableContext(exe *Executable, report *Report) *ExecutableContext {
 	return ec
 }
 
-func (ec *ExecutableContext) ResolveMethodFunction(structType *CStructType, method *CStructMethod) *ResolvedVariable {
+func (ec *ExecutableContext) ResolveMethodFunction(structType *CStructType, method *CStructMethod, resolve TypeResolve) *ResolvedVariable {
 	if ftype, ok := method.GetMemberType().(*CFunctionType); ok {
 		nameContext := structType.Name
 		for i, f := range ec.Executable.Functions {
-			if f.GetNameContext() == nameContext && f.GetName() == method.GetName() && f.GetFunctionType().ParameterTypesEqual(ftype) {
-				return &ResolvedVariable{Function: f, Address: i, VariableType: f.GetFunctionType()}
+			if f.GetNameContext() == nameContext && f.GetName() == method.GetName() {
+				if df, ok := f.(*InternalFunction); ok && df.functionTypeDelay != nil {
+					df.functionType = df.functionTypeDelay(resolve)
+					df.functionTypeDelay = nil
+				}
+
+				tpy := f.GetFunctionType()
+				if tpy.ParameterTypesEqual(ftype) {
+					return &ResolvedVariable{Function: f, Address: i, VariableType: f.GetFunctionType()}
+				}
 			}
 		}
 	}
@@ -250,7 +258,7 @@ func (ec *ExecutableContext) ResolveMethodFunction(structType *CStructType, meth
 }
 
 func (ec *ExecutableContext) UnresolvedMethod(typeName string, methodName string) *InternalFunction {
-	return NewInternalFunction(ec.machineInfo, "void "+typeName+"::"+methodName+"()", nil)
+	return NewInternalFunction(ec.machineInfo, "void "+typeName+"::"+methodName+"()", nil, false)
 }
 
 func (ec *ExecutableContext) GetConstantMemory(stringConstant string) Value {
@@ -651,7 +659,7 @@ func (cc *CCompiler) CompileExecutable() *Executable {
 
 	// Allocate vtable globals for polymorphic types
 	var polymorphicTypes []*CStructType
-	vtableVars := make(map[*CStructType]*CompiledVariable)
+	vtableVars := make(map[*CStructType]int)
 	for _, tuc := range tucs {
 		cc.CollectPolymorphicTypes(&tuc.TranslationUnit.Block, &polymorphicTypes)
 	}
@@ -659,7 +667,7 @@ func (cc *CCompiler) CompileExecutable() *Executable {
 	if len(polymorphicTypes) > 0 {
 		trapFunc := NewInternalFunction(cc.options.MachineInfo, "__pure_virtual_called", func(state *CInterpreter) {
 			panic("Pure virtual function called")
-		})
+		}, false)
 		pureVirtualTrap = trapFunc
 		exe.Functions = append(exe.Functions, trapFunc)
 	}
@@ -670,7 +678,7 @@ func (cc *CCompiler) CompileExecutable() *Executable {
 		nextTypeId++
 		vtableType := NewCArrayType(CBasicTypeSignedInt, new(st.VTable().RuntimeSlotCount()))
 		vtableVar := exe.AddGlobal(fmt.Sprintf("__vtable_%s", st.Name), vtableType)
-		st.VTableGlobalAddress = &vtableVar.StackOffset
+		st.VTableGlobalAddress = &exe.Globals[vtableVar].StackOffset
 		vtableVars[st] = vtableVar
 	}
 
@@ -684,20 +692,20 @@ func (cc *CCompiler) CompileExecutable() *Executable {
 		tu := tuc.TranslationUnit
 		for _, g := range tu.Variables {
 			v := exe.AddGlobal(g.Name, g.VariableType)
-			v.InitialValue = g.InitialValue
+			exe.Globals[v].InitialValue = g.InitialValue
 			if gst, ok := g.VariableType.(*CStructType); ok && gst.IsPolymorphic() && gst.VTableGlobalAddress != nil {
 				numValues := gst.NumValues()
-				if v.InitialValue == nil || len(v.InitialValue) < numValues {
+				if exe.Globals[v].InitialValue == nil || len(exe.Globals[v].InitialValue) < numValues {
 					iv := make([]Value, numValues)
-					if v.InitialValue != nil {
-						copy(iv, v.InitialValue)
+					if exe.Globals[v].InitialValue != nil {
+						copy(iv, exe.Globals[v].InitialValue)
 					}
-					v.InitialValue = iv
+					exe.Globals[v].InitialValue = iv
 				}
-				if v.InitialValue == nil {
-					v.InitialValue = make([]Value, numValues)
+				if exe.Globals[v].InitialValue == nil {
+					exe.Globals[v].InitialValue = make([]Value, numValues)
 				}
-				v.InitialValue[0] = ValuePointer(*gst.VTableGlobalAddress)
+				exe.Globals[v].InitialValue[0] = ValuePointer(*gst.VTableGlobalAddress)
 			}
 		}
 
@@ -788,7 +796,7 @@ func (cc *CCompiler) CollectPolymorphicTypes(block *Block, result *[]*CStructTyp
 	}
 }
 
-func (cc *CCompiler) PopulateVTable(exe *Executable, st *CStructType, vtableVar *CompiledVariable, funcIndex map[FuncIndexKey][]FuncIndexEntry, pureVirtualTrap BaseFunction) {
+func (cc *CCompiler) PopulateVTable(exe *Executable, st *CStructType, vtableVar int, funcIndex map[FuncIndexKey][]FuncIndexEntry, pureVirtualTrap BaseFunction) {
 	if st.VTable() == nil {
 		return
 	}
@@ -817,7 +825,7 @@ func (cc *CCompiler) PopulateVTable(exe *Executable, st *CStructType, vtableVar 
 			}
 		}
 	}
-	vtableVar.InitialValue = initialValues
+	exe.Globals[vtableVar].InitialValue = initialValues
 }
 
 type FuncIndexKey struct {
@@ -920,7 +928,7 @@ func (l *Label) GetIndex() int { return l.Index }
 // Executable methods needed by the compiler
 // ============================================================================
 
-func (e *Executable) AddGlobal(name string, ctype CType) *CompiledVariable {
+func (e *Executable) AddGlobal(name string, ctype CType) int {
 	offset := e.NextGlobalOffset()
 	index := len(e.Globals)
 	e.Globals = append(e.Globals, CompiledGlobal{
@@ -928,7 +936,7 @@ func (e *Executable) AddGlobal(name string, ctype CType) *CompiledVariable {
 		VariableType: ctype,
 		StackOffset:  offset,
 	})
-	return &e.Globals[index]
+	return index
 }
 
 func (e *Executable) NextGlobalOffset() int {
@@ -950,8 +958,8 @@ func (e *Executable) GetConstantMemory(stringConstant string) Value {
 		initialValues[i] = ValueOf(int8(b))
 	}
 	initialValues[length-1] = ValueOf(int8(0))
-	v.InitialValue = initialValues
-	return ValuePointer(v.StackOffset)
+	e.Globals[v].InitialValue = initialValues
+	return ValuePointer(e.Globals[v].StackOffset)
 }
 
 func (e *Executable) AddTypeHierarchyEntry(entry *TypeHierarchyEntry) {

@@ -262,6 +262,10 @@ func (v *Value) ToString() string {
 	return FmtInt64(v.Int64Value, 10)
 }
 
+func (v *Value) String() string {
+	return "Val<`0x" + FmtInt64(v.Int64Value, 16) + "`>"
+}
+
 //region ---- unsafe Value Union ----
 
 type ValueNumber interface {
@@ -555,7 +559,11 @@ func (m *MachineInfo) GeneratedHeaderCode() string {
 }
 
 func (m *MachineInfo) AddInternalFunction(prototype string, action InternalFunctionAction) {
-	m.InternalFunctions = append(m.InternalFunctions, NewInternalFunction(m, prototype, action))
+	m.InternalFunctions = append(m.InternalFunctions, NewInternalFunction(m, prototype, action, false))
+}
+
+func (m *MachineInfo) AddInternalFunctionDelay(prototype string, action InternalFunctionAction) {
+	m.InternalFunctions = append(m.InternalFunctions, NewInternalFunction(m, prototype, action, true))
 }
 
 func (m *MachineInfo) AddGlobalMethods(target any) {
@@ -958,30 +966,40 @@ func (e *Executable) DumpOp(internalFunction bool) (s string) {
 	if len(s) > 0 {
 		s += "Globals:\n"
 		for _, global := range g {
-			s += fmt.Sprintf("\t%s <%v> = %v\n",
-				global.Name, global.VariableType, global.InitialValue)
+			vv := fmt.Sprintf("%v", global.InitialValue)
+			if len(global.InitialValue) == 0 {
+				vv = "null"
+			}
+			if _, ok := (global.VariableType).(*CArrayType); ok {
+				vv = "[" + strings.Join(MapTo(global.InitialValue, func(i int, v Value) (string, bool) {
+					return FmtInt64(v.Int64Value, 10), true
+				}), ", ") + "]"
+			}
+			s += fmt.Sprintf("\t%s @%02d <%v> = %v\n",
+				global.Name, global.StackOffset, global.VariableType, vv)
 		}
 	}
 
 	if len(t) > 0 {
 		s += "Types:\n"
 		for _, typ := range t {
-			s += fmt.Sprintf("\t%s <%v> @ %v\n", typ.TypeName, typ.TypeId, typ.BaseTypeId)
+			s += fmt.Sprintf("\t%s <TypeId=%d Base=%d Name=%s>\n",
+				typ.TypeName, typ.TypeId, typ.BaseTypeId, typ.TypeName)
 		}
 	}
 
 	if len(f) > 0 {
 		s += "Functions:\n"
-		_ = internalFunction && MapF(f, func(ifun *InternalFunction) {
+		_ = internalFunction && MapF(f, func(i int, ifun *InternalFunction) {
 			nc := IfAppend(ifun.GetNameContext(), "::")
 			//goland:noinspection GoPrintFunctions
-			s += fmt.Sprintf("\t%s `%v` %v\n",
-				nc+ifun.GetName(), ifun.Action, ifun.GetFunctionType())
+			s += fmt.Sprintf("\t%s #%02d `%v` %v\n",
+				nc+ifun.GetName(), i, ifun.Action, ifun.GetFunctionType())
 		})
-		MapF(f, func(cfun *CompiledFunction) {
+		MapF(f, func(i int, cfun *CompiledFunction) {
 			nc := IfAppend(cfun.GetNameContext(), "::")
-			s += fmt.Sprintf("\t%s %v\n",
-				nc+cfun.GetName(), cfun.GetFunctionType())
+			s += fmt.Sprintf("\t%s #%02d %v\n",
+				nc+cfun.GetName(), i, cfun.GetFunctionType())
 			oi := cfun.GetInstructions()
 			for _, ins := range oi {
 				op := strings.Replace(ins.Op.String(), "OpCode(", "Op(", 1)
@@ -1059,10 +1077,12 @@ type InternalFunction struct {
 	instructions []Instruction
 	index        int
 	Action       InternalFunctionAction
+
+	functionTypeDelay func(ec TypeResolve) *CFunctionType
 }
 
 //goland:noinspection GoUnusedParameter
-func NewInternalFunction(m *MachineInfo, prototype string, action InternalFunctionAction) *InternalFunction {
+func NewInternalFunction(m *MachineInfo, prototype string, action InternalFunctionAction, delay bool) *InternalFunction {
 	proto := strings.TrimSpace(prototype)
 
 	parenIdx := strings.Index(proto, "(")
@@ -1077,20 +1097,43 @@ func NewInternalFunction(m *MachineInfo, prototype string, action InternalFuncti
 	}
 
 	name := parts[len(parts)-1]
-	returnTypeStr := strings.Join(parts[:len(parts)-1], " ")
-
-	returnType := parseCTypeName(returnTypeStr)
-	if returnType == nil {
-		returnType = SignedInt
+	nameContext := ""
+	parenJdx := strings.Index(name, "::")
+	if parenJdx >= 0 {
+		nameContext = name[:parenJdx]
+		name = name[parenJdx+2:]
 	}
 
-	functionType := NewCFunctionType(returnType, false, nil)
+	returnTypeStr := strings.Join(parts[:len(parts)-1], " ")
 
 	paramsStr := proto[parenIdx+1:]
 	if endIdx := strings.LastIndex(paramsStr, ")"); endIdx >= 0 {
 		paramsStr = paramsStr[:endIdx]
 	}
 	paramsStr = strings.TrimSpace(paramsStr)
+
+	functionTypeDelay := func(resolve TypeResolve) *CFunctionType {
+		return BuildFunctionType(returnTypeStr, paramsStr, func(name string) CType {
+			if typ := parseCTypeName(name); typ != nil {
+				return typ
+			}
+			return resolve.ResolveTypeNameString(name)
+		})
+	}
+	if !delay {
+		functionTypeDelay = nil
+	}
+	functionType := BuildFunctionType(returnTypeStr, paramsStr, parseCTypeName)
+	return &InternalFunction{name: name, nameContext: nameContext, functionType: functionType, Action: action, functionTypeDelay: functionTypeDelay}
+}
+
+func BuildFunctionType(returnTypeStr, paramsStr string, typeResolve func(string) CType) *CFunctionType {
+	returnType := typeResolve(returnTypeStr)
+	if returnType == nil {
+		returnType = SignedInt
+	}
+
+	functionType := NewCFunctionType(returnType, false, nil)
 
 	if paramsStr != "" && paramsStr != "void" {
 		for _, ps := range splitFuncParams(paramsStr) {
@@ -1106,14 +1149,14 @@ func NewInternalFunction(m *MachineInfo, prototype string, action InternalFuncti
 			if strings.HasPrefix(paramName, "*") {
 				paramTypeStr := strings.Join(paramParts[:len(paramParts)-1], " ")
 				paramName = strings.TrimPrefix(paramName, "*")
-				pt := parseCTypeName(paramTypeStr)
+				pt := typeResolve(paramTypeStr)
 				if pt == nil {
 					pt = SignedInt
 				}
 				functionType.AddParameter(paramName, NewCPointerType(pt), nil)
 			} else {
 				paramTypeStr := strings.Join(paramParts[:len(paramParts)-1], " ")
-				pt := parseCTypeName(paramTypeStr)
+				pt := typeResolve(paramTypeStr)
 				if pt == nil {
 					pt = SignedInt
 				}
@@ -1121,8 +1164,7 @@ func NewInternalFunction(m *MachineInfo, prototype string, action InternalFuncti
 			}
 		}
 	}
-
-	return &InternalFunction{name: name, functionType: functionType, Action: action}
+	return functionType
 }
 
 func parseCTypeName(s string) CType {

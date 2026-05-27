@@ -434,7 +434,7 @@ func TryEmitBinaryOperatorCall(ec *EmitContext, leftType, rightType CType, left,
 		method := FindBestOperatorMethod(structType, operatorName, argTypes)
 		if method != nil {
 			funcType := method.GetMemberType().(*CFunctionType)
-			resolved := ec.ResolveMethodFunction(structType, method)
+			resolved := ec.ResolveMethodFunction(structType, method, ec.self)
 			emitMemberOperatorCall(ec, structType, resolved, funcType, left, args, argTypes)
 			return true
 		}
@@ -470,7 +470,7 @@ func TryEmitUnaryOperatorCall(ec *EmitContext, operandType CType, operand Expres
 		method := FindBestOperatorMethod(structType, operatorName, nil)
 		if method != nil {
 			funcType := method.GetMemberType().(*CFunctionType)
-			resolved := ec.ResolveMethodFunction(structType, method)
+			resolved := ec.ResolveMethodFunction(structType, method, ec.self)
 			emitMemberOperatorCall(ec, structType, resolved, funcType, operand, nil, nil)
 			return true
 		}
@@ -1317,7 +1317,7 @@ func (e *FuncallExpression) resolveOverload(function Expression, argTypes []CTyp
 					new(method.VTableSlotIndex),
 				)
 			} else {
-				res := ec.ResolveMethodFunction(structType, &method)
+				res := ec.ResolveMethodFunction(structType, &method, ec.self)
 				if res != nil {
 					var ftype CType
 					if res.Function != nil {
@@ -1385,7 +1385,7 @@ func (e *FuncallExpression) resolveOverload(function Expression, argTypes []CTyp
 						new(method.VTableSlotIndex),
 					)
 				} else {
-					res := ec.ResolveMethodFunction(structType, &method)
+					res := ec.ResolveMethodFunction(structType, &method, ec.self)
 					if res != nil {
 						var ftype CType
 						if res.Function != nil {
@@ -1702,7 +1702,7 @@ func (e *MemberFromReferenceExpression) Emit(ec *EmitContext) {
 					ec.Emit(OpCodeOffsetPointer, ValueOf(0))
 					ec.Emit(OpCodeLoadPointer, ValueOf(0))
 				} else {
-					res := ec.ResolveMethodFunction(structType, method)
+					res := ec.ResolveMethodFunction(structType, method, ec.self)
 					if res != nil {
 						e.Left.EmitPointer(ec)
 						ec.Emit(OpCodeLoadConstant, ValuePointer(res.Address))
@@ -1815,7 +1815,7 @@ func (e *MemberFromPointerExpression) Emit(ec *EmitContext) {
 						ec.Emit(OpCodeOffsetPointer, ValueOf(0))
 						ec.Emit(OpCodeLoadPointer, ValueOf(0))
 					} else {
-						res := ec.ResolveMethodFunction(structType, method)
+						res := ec.ResolveMethodFunction(structType, method, ec.self)
 						if res != nil {
 							e.Left.Emit(ec)
 							ec.Emit(OpCodeLoadConstant, ValuePointer(res.Address))

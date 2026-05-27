@@ -390,10 +390,12 @@ void main() {
 func Test_InternalOperatorPlus(t *testing.T) {
 	mi := newTestMachineInfo(t)
 	mi.HeaderCode += "struct V { int x; V operator+(V other); };\n"
-	mi.AddInternalFunction("V V::operator+(V other)", func(state *CInterpreter) {
+	mi.AddInternalFunctionDelay("V V::operator+(V other)", func(state *CInterpreter) {
 		thisPtr := new(state.ReadThis()).PointerValue()
 		thisX := state.Stack[thisPtr].Int32Value()
 		otherX := new(state.ReadArg(0)).Int32Value()
+		t.Logf("[DEBUG] `V V::operator+(V other)` thisPtr=%d, thisX=%d, otherX=%d \nStack:\n\t%v",
+			thisPtr, thisX, otherX, state.Stack[:16])
 		state.Push(ValueOf(thisX + otherX))
 	})
 
@@ -403,13 +405,13 @@ void main() {
     V b; b.x = 4;
     V c = a + b;
     assertAreEqual(7, c.x);
-}`, mi)
+}`, mi, dumpOpCode)
 }
 
 func Test_InternalOperatorEquals(t *testing.T) {
 	mi := newTestMachineInfo(t)
 	mi.HeaderCode += "struct V { int x; bool operator==(V other); };\n"
-	mi.AddInternalFunction("bool V::operator==(V other)", func(state *CInterpreter) {
+	mi.AddInternalFunctionDelay("bool V::operator==(V other)", func(state *CInterpreter) {
 		thisPtr := new(state.ReadThis()).PointerValue()
 		thisX := state.Stack[thisPtr].Int32Value()
 		otherX := new(state.ReadArg(0)).Int32Value()
@@ -427,7 +429,7 @@ void main() {
     V c; c.x = 6;
     assertAreEqual(1, a == b);
     assertAreEqual(0, a == c);
-}`, mi)
+}`, mi, dumpOpCode)
 }
 
 func Test_MixedInternalAndCompiledOperators(t *testing.T) {

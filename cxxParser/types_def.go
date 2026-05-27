@@ -527,7 +527,7 @@ func (t *CArrayType) HashCode() int {
 }
 
 func (t *CArrayType) String() string {
-	return fmt.Sprintf("%v[%v]", t.ElementType, t.Length)
+	return fmt.Sprintf("%v[%d]", t.ElementType, *t.Length)
 }
 
 // ---------------------------------------------------------------------------

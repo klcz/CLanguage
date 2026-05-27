@@ -25,6 +25,33 @@ namespace CLanguage.Tests
             return i;
         }
 
+        protected CInterpreter Run(string code, MachineInfo mi, bool dump, params int[] expectedErrors)
+        {
+            var fullCode = "void start() { __cinit(); main(); } " + code;
+            var printer = new TestPrinter(expectedErrors);
+            var i = CLanguageService.CreateInterpreter(fullCode, mi ?? new TestMachineInfo(), printer: printer);
+            printer.CheckForErrors();
+            i.Reset("start");
+            var dumpStr = i.Executable.DumpOp(dump);
+            Console.Write($"DumpOp:\n{dumpStr}");
+            i.Run();
+            return i;
+        }
+
+        protected CInterpreter Run(string code, bool dump, params int[] expectedErrors)
+        {
+            var mi = new TestMachineInfo();
+            var fullCode = "void start() { __cinit(); main(); } " + code;
+            var printer = new TestPrinter(expectedErrors);
+            var i = CLanguageService.CreateInterpreter(fullCode, mi ?? new TestMachineInfo(), printer: printer);
+            printer.CheckForErrors();
+            i.Reset("start");
+            var dumpStr = i.Executable.DumpOp(dump);
+            Console.Write($"DumpOp:\n{dumpStr}");
+            i.Run();
+            return i;
+        }
+
         protected Executable Compile (string code, params int[] expectedErrors)
         {
             return Compile (code, null, expectedErrors);

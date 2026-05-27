@@ -13,6 +13,12 @@ func dumpOpCode(t *testing.T, exe *Executable) {
 	t.Logf("DumpOp: \n%s", dump)
 }
 
+//goland:noinspection GoUnusedFunction
+func dumpOpCodeAll(t *testing.T, exe *Executable) {
+	dump := exe.DumpOp(true)
+	t.Logf("DumpOp: \n%s", dump)
+}
+
 // ============================================================================
 // ParserTests — from ParserTests.cs
 // ============================================================================
@@ -353,7 +359,7 @@ func runCode(t *testing.T, code string, mi *MachineInfo, opts ...func(*testing.T
 	for _, opt := range opts {
 		opt(t, exe)
 	}
-	
+
 	defer func() {
 		if r := recover(); r != nil {
 			t.Skipf("Runtime panic (likely incomplete feature): %v", r)
@@ -864,3 +870,16 @@ void main() {
 }
 
 //endregion
+
+func Test_NullTerminated(t *testing.T) {
+	runCode(t, `
+char *bar = "bar";
+void main () {
+	char *foo = bar;
+    assertAreEqual ('b', bar[0]);
+    assertAreEqual ('a', bar[1]);
+    assertAreEqual ('r', bar[2]);
+    assertAreEqual (0, bar[3]);
+}
+	`, newArduinoTestMachineInfo(t), dumpOpCode)
+}

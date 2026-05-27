@@ -4,14 +4,71 @@ import (
 	"fmt"
 )
 
-func MapF[V BaseFunction](m []BaseFunction, action func(V)) bool {
-	for _, obj := range m {
+func MapF[V BaseFunction](m []BaseFunction, action func(int, V)) bool {
+	for i, obj := range m {
 		if v, ok := obj.(V); ok {
-			action(v)
+			action(i, v)
 		}
 	}
 	return true
 }
+
+func IfAppend(v string, append string) string {
+	if len(v) == 0 {
+		return ""
+	}
+	return v + append
+}
+
+func MapTo[T any, V any](arr []T, f func(int, T) (V, bool)) []V {
+	res := make([]V, 0, len(arr))
+	for i, t := range arr {
+		tmp, ok := f(i, t)
+		if ok {
+			res = append(res, tmp)
+		}
+	}
+	return res
+}
+
+func FmtInt(i int) string {
+	return FmtInt64(int64(i), 10)
+}
+
+func FmtInt64(i int64, base int) string {
+	const charset = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	if base < 2 {
+		base = 2
+	} else if base > 36 {
+		base = 36
+	}
+	if i == 0 {
+		return "0"
+	}
+	var neg bool
+	var u uint64
+	if i < 0 {
+		neg = true
+		u = uint64(-i)
+	} else {
+		u = uint64(i)
+	}
+	var buf [65]byte
+	n := len(buf)
+	b := uint64(base)
+	for u > 0 {
+		n--
+		buf[n] = charset[u%b]
+		u /= b
+	}
+	if neg {
+		n--
+		buf[n] = '-'
+	}
+	return string(buf[n:])
+}
+
+//region ---- OpFunc Helper ----
 
 type OpFuncT1 = func(*Value) Value
 type OpFuncT2 = func(*Value, *Value) Value
@@ -635,49 +692,7 @@ var OpFuncV2 = struct {
 	OpCodeGreaterThan: _OpCodeGreaterThan,
 }
 
-func IfAppend(v string, append string) string {
-	if len(v) == 0 {
-		return ""
-	}
-	return v + append
-}
-
-func FmtInt(i int) string {
-	return FmtInt64(int64(i), 10)
-}
-
-func FmtInt64(i int64, base int) string {
-	const charset = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	if base < 2 {
-		base = 2
-	} else if base > 36 {
-		base = 36
-	}
-	if i == 0 {
-		return "0"
-	}
-	var neg bool
-	var u uint64
-	if i < 0 {
-		neg = true
-		u = uint64(-i)
-	} else {
-		u = uint64(i)
-	}
-	var buf [65]byte
-	n := len(buf)
-	b := uint64(base)
-	for u > 0 {
-		n--
-		buf[n] = charset[u%b]
-		u /= b
-	}
-	if neg {
-		n--
-		buf[n] = '-'
-	}
-	return string(buf[n:])
-}
+//endregion
 
 // ============================================================================
 // TokenKind — token constants matching the C# Parser.TokenKind

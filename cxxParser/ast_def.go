@@ -1,6 +1,8 @@
 package cxxParser
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // ── VariableScope ────────────────────────────────────────────────────────────
 
@@ -317,17 +319,47 @@ func (b *Block) AddDeclarationToBlock(ctx *BlockContext) {
 }
 
 func (b *Block) DoEmit(ec *EmitContext) {
-	for _, s := range b.Statements {
-		s.Emit(ec)
-	}
-}
-
-func (b *Block) Emit(ec *EmitContext) {
+	/*
+	   ec.BeginBlock (this);
+	   // Emit vptr initialization for local polymorphic variables
+	   foreach (var v in Variables) {
+	       if (v.VariableType is CStructType st && st.IsPolymorphic && st.VTableGlobalAddress.HasValue) {
+	           // StorePointer pops: [value, address] and stores value at address
+	           ec.Emit (OpCode.LoadConstant, Value.Pointer (st.VTableGlobalAddress.Value)); // value = vtable addr
+	           ec.Emit (OpCode.LoadFramePointer);                                           // FP
+	           ec.Emit (OpCode.LoadConstant, Value.Pointer (v.StackOffset));                // local offset
+	           ec.Emit (OpCode.OffsetPointer);                                              // FP + offset = &variable
+	           ec.Emit (OpCode.StorePointer);                                               // store vtable addr at variable[0]
+	       }
+	   }
+	   foreach (var s in Statements) {
+	       s.Emit (ec);
+	   }
+	   ec.EndBlock ();
+	*/
 	ec.self.BeginBlock(b)
+	// Emit vptr initialization for local polymorphic variables
+	for _, v := range b.Variables {
+		if st, ok := v.VariableType.(*CStructType); ok {
+			if st.IsPolymorphic() && st.VTableGlobalAddress != nil {
+				// StorePointer pops: [value, address] and stores value at address
+				ec.Emit(OpCodeLoadConstant, ValuePointer(*st.VTableGlobalAddress)) // value = vtable addr
+				ec.Emit(OpCodeLoadFramePointer, UnionValue(0))                     // FP
+				ec.Emit(OpCodeLoadConstant, ValuePointer(v.StackOffset))           // local offset
+				ec.Emit(OpCodeOffsetPointer, UnionValue(0))                        // FP + offset = &variable
+				ec.Emit(OpCodeStorePointer, UnionValue(0))                         // store vtable addr at variable[0]
+			}
+		}
+	}
+
 	for _, s := range b.Statements {
 		s.Emit(ec)
 	}
 	ec.self.EndBlock()
+}
+
+func (b *Block) Emit(ec *EmitContext) {
+	b.DoEmit(ec)
 }
 
 func (b *Block) String() string { return "{...}" }
@@ -423,6 +455,25 @@ const (
 	RelationalOpNotEquals          RelationalOp = 5
 )
 
+func (op RelationalOp) String() string {
+	switch op {
+	case RelationalOpEquals:
+		return "Equals"
+	case RelationalOpNotEquals:
+		return "NotEquals"
+	case RelationalOpLessThan:
+		return "LessThan"
+	case RelationalOpGreaterThan:
+		return "GreaterThan"
+	case RelationalOpLessThanOrEqual:
+		return "LessThanOrEqual"
+	case RelationalOpGreaterThanOrEqual:
+		return "GreaterThanOrEqual"
+	default:
+		return "Unknown"
+	}
+}
+
 type RelationalExpression struct {
 	ExpressionBase
 	Left  Expression
@@ -435,13 +486,22 @@ func NewRelationalExpression(left Expression, op RelationalOp, right Expression)
 }
 
 func (e *RelationalExpression) GetEvaluatedCType(ec *EmitContext) CType {
-	return CBasicTypeSignedInt
+	leftType := e.Left.GetEvaluatedCType(ec)
+	rightType := e.Right.GetEvaluatedCType(ec)
+	if ft := TryResolveBinaryOperatorType(ec, leftType, rightType, e.Op.String()); ft != nil {
+		return ft.ReturnType
+	}
+	return CBasicTypeBool
 }
 
 func (e *RelationalExpression) Emit(ec *EmitContext) {
 	leftType := e.Left.GetEvaluatedCType(ec)
 	rightType := e.Right.GetEvaluatedCType(ec)
-	aType := GetArithmeticType(e.Left, e.Right, "compare", ec)
+	if TryEmitBinaryOperatorCall(ec, leftType, rightType, e.Left, e.Right, RelOpToOperatorName(e.Op)) {
+		return
+	}
+
+	aType := GetArithmeticType(e.Left, e.Right, e.Op.String(), ec)
 
 	e.Left.Emit(ec)
 	ec.EmitCast(leftType, aType)
