@@ -7,6 +7,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+//goland:noinspection GoUnusedFunction
+func dumpOpCode(t *testing.T, exe *Executable) {
+	dump := exe.DumpOp(false)
+	t.Logf("DumpOp: \n%s", dump)
+}
+
 // ============================================================================
 // ParserTests — from ParserTests.cs
 // ============================================================================
@@ -320,7 +326,7 @@ func addAssertFunctions(t *testing.T, mi *MachineInfo) {
 
 // runCode compiles and runs C code, recovering from runtime panics.
 // Returns the interpreter if execution completed without panic.
-func runCode(t *testing.T, code string, mi *MachineInfo) *CInterpreter {
+func runCode(t *testing.T, code string, mi *MachineInfo, opts ...func(*testing.T, *Executable)) *CInterpreter {
 	t.Helper()
 	if mi == nil {
 		mi = newTestMachineInfo(t)
@@ -344,6 +350,10 @@ func runCode(t *testing.T, code string, mi *MachineInfo) *CInterpreter {
 
 	i := NewCInterpreter(exe)
 	i.Reset("start")
+	for _, opt := range opts {
+		opt(t, exe)
+	}
+	
 	defer func() {
 		if r := recover(); r != nil {
 			t.Skipf("Runtime panic (likely incomplete feature): %v", r)

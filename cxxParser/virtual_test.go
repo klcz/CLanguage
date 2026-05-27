@@ -452,5 +452,5 @@ void main() {
     B b;
     assertAreEqual(42, b.f());
 }
-`, newArduinoTestMachineInfo(t))
+`, newArduinoTestMachineInfo(t), dumpOpCode)
 }

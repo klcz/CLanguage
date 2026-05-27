@@ -9,6 +9,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+//goland:noinspection GoUnusedFunction
+func dumpOpCode(t *testing.T, exe *cxx.Executable) {
+	dump := exe.DumpOp(false)
+	t.Logf("DumpOp: \n%s", dump)
+}
+
 // region --- calc ---
 
 //goland:noinspection GoUnusedExportedType
@@ -229,12 +235,6 @@ func addAssertFunctions(t *testing.T, mi *cxx.MachineInfo) {
 		}
 		state.Push(cxx.UnionValue(0))
 	})
-}
-
-//goland:noinspection GoUnusedFunction
-func dumpOpCode(t *testing.T, exe *cxx.Executable) {
-	dump := exe.DumpOp(false)
-	t.Logf("DumpOp: \n%s", dump)
 }
 
 // safeRun compiles and runs C code, recovering from runtime panics.

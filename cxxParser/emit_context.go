@@ -203,6 +203,12 @@ func (ec *EmitContext) EndBlock() {
 }
 
 func (ec *EmitContext) AllocateTemp(ctype CType) int {
+	// Go doesn't have virtual dispatch, so if self is a FunctionContext,
+	// call its AllocateTemp directly. The FunctionContext is the only
+	// context that can actually allocate temporaries.
+	if fc, ok := ec.self.(*FunctionContext); ok {
+		return fc.AllocateTemp(ctype)
+	}
 	if ec.parentCtx != nil {
 		return ec.parentCtx.self.AllocateTemp(ctype)
 	}
