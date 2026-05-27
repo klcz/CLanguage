@@ -153,8 +153,9 @@ func (b *CBasicType) GetBasicType() *CBasicType { return b }
 
 func (b *CBasicType) IsIntegral() bool {
 	if b.self != nil {
-		if si, ok := b.self.(interface{ IsIntegral() bool }); ok {
-			return si.IsIntegral()
+		switch b.self.(type) {
+		case *CIntType, *CBoolType, *CEnumType:
+			return true
 		}
 	}
 	return b.Name == "int" || b.Name == "char" || b.Name == "bool"
@@ -325,24 +326,24 @@ func (t *CIntType) GetClrValue(values []Value, machineInfo *MachineInfo) any {
 	if t.Signedness == Signed {
 		switch byteSize {
 		case 1:
-			return values[0].Int8Value
+			return values[0].Int8Value()
 		case 2:
-			return values[0].Int16Value
+			return values[0].Int16Value()
 		case 4:
-			return values[0].Int32Value
+			return values[0].Int32Value()
 		default:
 			return values[0].Int64Value
 		}
 	}
 	switch byteSize {
 	case 1:
-		return values[0].UInt8Value
+		return values[0].UInt8Value()
 	case 2:
-		return values[0].UInt16Value
+		return values[0].UInt16Value()
 	case 4:
-		return values[0].UInt32Value
+		return values[0].UInt32Value()
 	default:
-		return values[0].UInt64Value
+		return values[0].UInt64Value()
 	}
 }
 
@@ -526,7 +527,7 @@ func (t *CArrayType) HashCode() int {
 }
 
 func (t *CArrayType) String() string {
-	return fmt.Sprintf("%v[%v]", t.ElementType, t.Length)
+	return fmt.Sprintf("%v[%d]", t.ElementType, *t.Length)
 }
 
 // ---------------------------------------------------------------------------
@@ -1009,7 +1010,7 @@ func (t *CFunctionType) String() string {
 	for _, p := range t.parameters {
 		s += head
 		s += fmt.Sprint(p)
-		head = " "
+		head = ", "
 	}
 	s += "))"
 	return s
@@ -1172,51 +1173,29 @@ func (t *VTable) Entry(index int) *VTableEntry { return t.Entries[index] }
 var (
 	VoidCType CType = NewCVoidType()
 
-	PointerToConstChar *CPointerType
-	PointerToVoid      *CPointerType
-	VoidProcedure      *CFunctionType
+	ConstChar *CIntType = func() *CIntType {
+		c := NewCIntType("char", Signed, "")
+		c.TypeQualifiers = TypeQualifiersConst
+		return c
+	}()
+	UnsignedChar        *CIntType = NewCIntType("char", Unsigned, "")
+	SignedChar          *CIntType = NewCIntType("char", Signed, "")
+	UnsignedShortInt    *CIntType = NewCIntType("int", Unsigned, "short")
+	SignedShortInt      *CIntType = NewCIntType("int", Signed, "short")
+	UnsignedInt         *CIntType = NewCIntType("int", Unsigned, "")
+	SignedInt           *CIntType = NewCIntType("int", Signed, "")
+	UnsignedLongInt     *CIntType = NewCIntType("int", Unsigned, "long")
+	SignedLongInt       *CIntType = NewCIntType("int", Signed, "long")
+	UnsignedLongLongInt *CIntType = NewCIntType("int", Unsigned, "long long")
+	SignedLongLongInt   *CIntType = NewCIntType("int", Signed, "long long")
 
-	ConstChar           *CIntType
-	UnsignedChar        *CIntType
-	SignedChar          *CIntType
-	UnsignedShortInt    *CIntType
-	SignedShortInt      *CIntType
-	UnsignedInt         *CIntType
-	SignedInt           *CIntType
-	UnsignedLongInt     *CIntType
-	SignedLongInt       *CIntType
-	UnsignedLongLongInt *CIntType
-	SignedLongLongInt   *CIntType
-
-	Float  *CFloatType
-	Double *CFloatType
-	Bool   *CBoolType
+	Float  *CFloatType = NewCFloatType("float", 32)
+	Double *CFloatType = NewCFloatType("double", 64)
+	Bool   *CBoolType  = NewCBoolType()
 )
 
-func init() {
-	ConstChar = NewCIntType("char", Signed, "")
-	ConstChar.TypeQualifiers = TypeQualifiersConst
-
-	UnsignedChar = NewCIntType("char", Unsigned, "")
-	SignedChar = NewCIntType("char", Signed, "")
-
-	UnsignedShortInt = NewCIntType("int", Unsigned, "short")
-	SignedShortInt = NewCIntType("int", Signed, "short")
-
-	UnsignedInt = NewCIntType("int", Unsigned, "")
-	SignedInt = NewCIntType("int", Signed, "")
-
-	UnsignedLongInt = NewCIntType("int", Unsigned, "long")
-	SignedLongInt = NewCIntType("int", Signed, "long")
-
-	UnsignedLongLongInt = NewCIntType("int", Unsigned, "long long")
-	SignedLongLongInt = NewCIntType("int", Signed, "long long")
-
-	Float = NewCFloatType("float", 32)
-	Double = NewCFloatType("double", 64)
-	Bool = NewCBoolType()
-
-	PointerToConstChar = NewCPointerType(ConstChar)
-	PointerToVoid = NewCPointerType(VoidCType)
-	VoidProcedure = NewCFunctionType(VoidCType, false, nil)
-}
+var (
+	PointerToConstChar *CPointerType  = NewCPointerType(ConstChar)
+	PointerToVoid      *CPointerType  = NewCPointerType(VoidCType)
+	VoidProcedure      *CFunctionType = NewCFunctionType(VoidCType, false, nil)
+)

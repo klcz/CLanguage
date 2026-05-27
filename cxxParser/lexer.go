@@ -11,7 +11,7 @@ import (
 // ============================================================================
 
 type Lexer struct {
-	_token int
+	_token TokenKind
 	_value interface{}
 
 	_lastR    int
@@ -50,6 +50,15 @@ func NewLexerWithName(name, code string, report *Report) *Lexer {
 }
 
 func (l *Lexer) CurrentToken() Token {
+	if l._value == nil {
+		text := ""
+		// Location.IsNull || EndLocation.IsNull || Location.Document.Path != EndLocation.Document.Path ? "" :
+		// Location.Document.Content.Substring (Location.Index, EndLocation.Index - Location.Index);
+		if l.location.Document != nil && l.location.Document == l.location.Document {
+			text = l.location.Document.Content[l.location.Index:l.endLocation.Index]
+		}
+		return NewToken(l._token, text, l.location, l.endLocation)
+	}
 	return NewToken(l._token, l._value, l.location, l.endLocation)
 }
 
@@ -59,7 +68,7 @@ func (l *Lexer) Eof() bool {
 	return false
 }
 
-var kwTokens = map[string]int{
+var kwTokens = map[string]TokenKind{
 	"auto":      TokenKindAUTO,
 	"bool":      TokenKindBOOL,
 	"break":     TokenKindBREAK,
@@ -107,8 +116,8 @@ var kwTokens = map[string]int{
 }
 
 //goland:noinspection GoUnusedGlobalVariable
-var KeywordTokens = func() map[int]bool {
-	m := make(map[int]bool)
+var KeywordTokens = func() map[TokenKind]bool {
+	m := make(map[TokenKind]bool)
 	for _, v := range kwTokens {
 		m[v] = true
 	}
@@ -116,7 +125,7 @@ var KeywordTokens = func() map[int]bool {
 }()
 
 //goland:noinspection GoUnusedGlobalVariable
-var OperatorTokens = map[int]bool{
+var OperatorTokens = map[TokenKind]bool{
 	TokenKindEQ_OP:    true,
 	TokenKindGE_OP:    true,
 	TokenKindLE_OP:    true,
@@ -341,7 +350,7 @@ func (l *Lexer) Advance() bool {
 			l._lastR = r
 		}
 	} else if r == ',' || r == ';' || r == '?' || r == '(' || r == ')' || r == '{' || r == '}' || r == '[' || r == ']' || r == '~' || r == '%' || r == '#' || r == '\\' {
-		l._token = r
+		l._token = TokenKind(r)
 		l._value = nil
 		l._lastR = l.Read()
 	} else if r == '.' {
@@ -359,7 +368,7 @@ func (l *Lexer) Advance() bool {
 				l.Report.ErrorAt(1001, l.location.Add(1), l.location.Add(2), "Identifier expected")
 			}
 		} else {
-			l._token = r
+			l._token = TokenKind(r)
 			l._value = nil
 			l._lastR = nr
 		}
@@ -375,7 +384,7 @@ func (l *Lexer) Advance() bool {
 			l._value = nil
 			l._lastR = nr
 		} else {
-			l._token = r
+			l._token = TokenKind(r)
 			l._value = nil
 			l._lastR = nr
 		}
@@ -387,7 +396,7 @@ func (l *Lexer) Advance() bool {
 			l._value = nil
 			l._lastR = nr
 		} else {
-			l._token = r
+			l._token = TokenKind(r)
 			l._value = nil
 			l._lastR = nr
 		}
@@ -411,7 +420,7 @@ func (l *Lexer) Advance() bool {
 			l._value = nil
 			l._lastR = nr
 		} else {
-			l._token = r
+			l._token = TokenKind(r)
 			l._value = nil
 			l._lastR = nr
 		}
@@ -435,7 +444,7 @@ func (l *Lexer) Advance() bool {
 			l._value = nil
 			l._lastR = nr
 		} else {
-			l._token = r
+			l._token = TokenKind(r)
 			l._value = nil
 			l._lastR = nr
 		}
@@ -450,7 +459,7 @@ func (l *Lexer) Advance() bool {
 			l._value = nil
 			l._lastR = l.Read()
 		} else {
-			l._token = r
+			l._token = TokenKind(r)
 			l._value = nil
 			l._lastR = nr
 		}
@@ -469,7 +478,7 @@ func (l *Lexer) Advance() bool {
 			l._value = nil
 			l._lastR = l.Read()
 		} else {
-			l._token = r
+			l._token = TokenKind(r)
 			l._value = nil
 			l._lastR = nr
 		}
@@ -484,7 +493,7 @@ func (l *Lexer) Advance() bool {
 			l._value = nil
 			l._lastR = l.Read()
 		} else {
-			l._token = r
+			l._token = TokenKind(r)
 			l._value = nil
 			l._lastR = nr
 		}
@@ -499,7 +508,7 @@ func (l *Lexer) Advance() bool {
 			l._value = nil
 			l._lastR = l.Read()
 		} else {
-			l._token = r
+			l._token = TokenKind(r)
 			l._value = nil
 			l._lastR = nr
 		}

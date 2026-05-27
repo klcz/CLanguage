@@ -13,6 +13,18 @@ using System.Net;
 
 namespace CLanguage.Interpreter
 {
+    public static class ListExtensions
+    {
+        public static void ForEach<T>(this IEnumerable<T> source, Action<T, int> action)
+        {
+            int index = 0;
+            foreach (var item in source)
+            {
+                action(item, index++);
+            }
+        }
+    }
+
     public class Executable
     {
         public MachineInfo MachineInfo { get; private set; }
@@ -63,15 +75,15 @@ namespace CLanguage.Interpreter
             return Value.Pointer(v.StackOffset);
         }
 
-        public static bool MapF<V>(IEnumerable<BaseFunction> m, Action<V> action) where V : BaseFunction
+        public static bool MapF<V>(IEnumerable<BaseFunction> m, Action<int, V> action) where V : BaseFunction
         {
-            foreach (var obj in m)
+            m.ForEach((obj, i) =>
             {
                 if (obj is V v)
                 {
-                    action(v);
+                    action(i, v);
                 }
-            }
+            });
             return true;
         }
 
@@ -98,10 +110,12 @@ namespace CLanguage.Interpreter
             if (g.Count > 0)
             {
                 s += "Globals:\n";
-                foreach (var global in g)
+                g.ForEach((global, i) =>
                 {
-                    s += $"\t{global.Name} <{global.VariableType}> = {global.InitialValue}\n";
-                }
+                    var vv = global.InitialValue == null ? "null" : $"{global.InitialValue}";
+                    vv = global.InitialValue?.Length > 0 ? $"[{string.Join(", ", global.InitialValue)}]" : vv;
+                    s += $"\t{global.Name} @{i:D2} <{global.VariableType}> = {vv}\n";
+                });
             }
 
             if (t.Count > 0)
@@ -109,7 +123,7 @@ namespace CLanguage.Interpreter
                 s += "Types:\n";
                 foreach (var typ in t)
                 {
-                    s += $"\t{typ.TypeName} <{typ.TypeId}> @ {typ.BaseTypeId}\n";
+                    s += $"\t{typ.TypeName} <{typ}>\n";
                 }
             }
 
@@ -117,16 +131,16 @@ namespace CLanguage.Interpreter
             {
                 s += "Functions:\n";
 
-                _ = internalFunction && MapF(f, (InternalFunction ifun) =>
+                _ = internalFunction && MapF(f, (int i, InternalFunction ifun) =>
                 {
                     var nc = IfAppend(ifun.NameContext, "::");
-                    s += $"\t{nc + ifun.Name} `{ifun.Action}` {ifun.FunctionType}\n";
+                    s += $"\t{nc + ifun.Name} #{i:D2} `{ifun.Action}` {ifun.FunctionType}\n";
 
                 });
-                MapF(f, (CompiledFunction cfun) =>
+                MapF(f, (int i, CompiledFunction cfun) =>
                 {
                     var nc = IfAppend(cfun.NameContext, "::");
-                    s += $"\t{nc + cfun.Name} {cfun.FunctionType}\n";
+                    s += $"\t{nc + cfun.Name} #{i:D2} {cfun.FunctionType}\n";
                     var oi = cfun.Instructions;
                     foreach (var ins in oi) {
                         var op = ins.Op.ToString().Replace("OpCode(", "Op(");

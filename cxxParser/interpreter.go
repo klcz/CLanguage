@@ -202,29 +202,30 @@ func (f *CompiledFunction) Step(state *CInterpreter, frame *ExecutionFrame) {
 			panic(fmt.Errorf("%s %s@%d stack underflow", prevOp, f.Name, ip-1))
 		}
 
-		switch OpCode(i.Op) {
+		op := i.Op
+		switch {
 		// --- Stack ---
-		case OpCodeDup:
+		case op == OpCodeDup:
 			state.Stack[state.SP] = state.Stack[state.SP-1]
 			state.SP++
 			ip++
 
-		case OpCodePop:
+		case op == OpCodePop:
 			state.SP--
 			ip++
 
 		// --- Control ---
-		case OpCodeJump:
+		case op == OpCodeJump:
 			if i.Label != nil {
 				ip = i.Label.Index
 			} else {
 				panic("Jump label not set")
 			}
 
-		case OpCodeBranchIfFalse:
+		case op == OpCodeBranchIfFalse:
 			a := state.Stack[state.SP-1]
 			state.SP--
-			if a.Int32Value == 0 {
+			if a.Int32Value() == 0 {
 				if i.Label != nil {
 					ip = i.Label.Index
 				} else {
@@ -234,10 +235,10 @@ func (f *CompiledFunction) Step(state *CInterpreter, frame *ExecutionFrame) {
 				ip++
 			}
 
-		case OpCodeBranchIfTrue:
+		case op == OpCodeBranchIfTrue:
 			a := state.Stack[state.SP-1]
 			state.SP--
-			if a.Int32Value != 0 {
+			if a.Int32Value() != 0 {
 				if i.Label != nil {
 					ip = i.Label.Index
 				} else {
@@ -247,953 +248,182 @@ func (f *CompiledFunction) Step(state *CInterpreter, frame *ExecutionFrame) {
 				ip++
 			}
 
-		case OpCodeCall:
+		case op == OpCodeCall:
 			a := state.Stack[state.SP-1]
 			state.SP--
 			ip++
 			state.CallValue(a)
 			done = true
 
-		case OpCodeCallVirtual:
-			vtableSlot := i.X.Int32Value
-			thisAddr := state.Stack[state.SP-1].PointerValue
-			vptr := state.Stack[thisAddr].PointerValue
-			funcPtr := state.Stack[vptr+1+vtableSlot].PointerValue
+		case op == OpCodeCallVirtual:
+			vtableSlot := i.X.Int32Value()
+			thisAddr := state.Stack[state.SP-1].PointerValue()
+			vptr := state.Stack[thisAddr].PointerValue()
+			funcPtr := state.Stack[vptr+1+vtableSlot].PointerValue()
 			ip++
 			state.Call(state.exe.Functions[funcPtr])
 			done = true
 
-		case OpCodeReturn:
+		case op == OpCodeReturn:
 			state.Return()
 			done = true
 
 		// --- Memory ---
-		case OpCodeLoadConstant:
+		case op == OpCodeLoadConstant:
 			state.Stack[state.SP] = i.X
 			state.SP++
 			ip++
 
-		case OpCodeLoadFramePointer:
+		case op == OpCodeLoadFramePointer:
 			state.Stack[state.SP] = ValueOf(frame.FP)
 			state.SP++
 			ip++
 
-		case OpCodeLoadPointer:
+		case op == OpCodeLoadPointer:
 			a := state.Stack[state.SP-1]
-			state.Stack[state.SP-1] = state.Stack[a.PointerValue]
+			state.Stack[state.SP-1] = state.Stack[a.PointerValue()]
 			ip++
 
-		case OpCodeStorePointer:
+		case op == OpCodeStorePointer:
 			a := state.Stack[state.SP-2]
 			b := state.Stack[state.SP-1]
-			state.Stack[b.PointerValue] = a
+			state.Stack[b.PointerValue()] = a
 			state.SP -= 2
 			ip++
 
-		case OpCodeOffsetPointer:
+		case op == OpCodeOffsetPointer:
 			a := state.Stack[state.SP-2]
 			b := state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(a.PointerValue + b.Int32Value)
+			state.Stack[state.SP-2] = ValueOf(a.PointerValue() + b.Int32Value())
 			state.SP--
 			ip++
 
-		case OpCodeLoadGlobal:
-			state.Stack[state.SP] = state.Stack[i.X.Int32Value]
+		case op == OpCodeLoadGlobal:
+			state.Stack[state.SP] = state.Stack[i.X.Int32Value()]
 			state.SP++
 			ip++
 
-		case OpCodeStoreGlobal:
-			state.Stack[i.X.Int32Value] = state.Stack[state.SP-1]
+		case op == OpCodeStoreGlobal:
+			state.Stack[i.X.Int32Value()] = state.Stack[state.SP-1]
 			state.SP--
 			ip++
 
-		case OpCodeLoadArg:
-			state.Stack[state.SP] = state.Stack[frame.FP+int(i.X.Int32Value)]
+		case op == OpCodeLoadArg:
+			state.Stack[state.SP] = state.Stack[frame.FP+int(i.X.Int32Value())]
 			state.SP++
 			ip++
 
-		case OpCodeStoreArg:
-			state.Stack[frame.FP+int(i.X.Int32Value)] = state.Stack[state.SP-1]
+		case op == OpCodeStoreArg:
+			state.Stack[frame.FP+int(i.X.Int32Value())] = state.Stack[state.SP-1]
 			state.SP--
 			ip++
 
-		case OpCodeLoadLocal:
-			state.Stack[state.SP] = state.Stack[frame.FP+int(i.X.Int32Value)]
+		case op == OpCodeLoadLocal:
+			val := state.Stack[frame.FP+int(i.X.Int32Value())]
+			state.Stack[state.SP] = val
 			state.SP++
 			ip++
 
-		case OpCodeStoreLocal:
-			state.Stack[frame.FP+int(i.X.Int32Value)] = state.Stack[state.SP-1]
+		case op == OpCodeStoreLocal:
+			state.Stack[frame.FP+int(i.X.Int32Value())] = state.Stack[state.SP-1]
 			state.SP--
 			ip++
 
 		// --- Arithmetic: Add ---
-		case OpCodeAddInt8:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(int8(a.Int64Value) + int8(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeAddUInt8:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint8(a.Int64Value) + uint8(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeAddInt16:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(int16(a.Int64Value) + int16(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeAddUInt16:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint16(a.Int64Value) + uint16(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeAddInt32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(a.Int32Value + b.Int32Value)
-			state.SP--
-			ip++
-
-		case OpCodeAddUInt32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint32(a.Int64Value) + uint32(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeAddInt64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(a.Int64Value + b.Int64Value)
-			state.SP--
-			ip++
-
-		case OpCodeAddUInt64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint64(a.Int64Value) + uint64(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeAddFloat32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(a.Float32Value + b.Float32Value)
-			state.SP--
-			ip++
-
-		case OpCodeAddFloat64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(a.Float64Value + b.Float64Value)
-			state.SP--
+		case op >= OpCodeAddInt8 && op <= OpCodeAddFloat64:
+			OpFunc2(state, &OpFuncV2.OpCodeAdd, op)
 			ip++
 
 		// --- Arithmetic: Subtract ---
-		case OpCodeSubtractInt8:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(int8(a.Int64Value) - int8(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeSubtractUInt8:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint8(a.Int64Value) - uint8(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeSubtractInt16:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(int16(a.Int64Value) - int16(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeSubtractUInt16:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint16(a.Int64Value) - uint16(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeSubtractInt32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(a.Int32Value - b.Int32Value)
-			state.SP--
-			ip++
-
-		case OpCodeSubtractUInt32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint32(a.Int64Value) - uint32(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeSubtractInt64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(a.Int64Value - b.Int64Value)
-			state.SP--
-			ip++
-
-		case OpCodeSubtractUInt64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint64(a.Int64Value) - uint64(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeSubtractFloat32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(a.Float32Value - b.Float32Value)
-			state.SP--
-			ip++
-
-		case OpCodeSubtractFloat64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(a.Float64Value - b.Float64Value)
-			state.SP--
+		case op >= OpCodeSubtractInt8 && op <= OpCodeSubtractFloat64:
+			OpFunc2(state, &OpFuncV2.OpCodeSubtract, op)
 			ip++
 
 		// --- Arithmetic: Multiply ---
-		case OpCodeMultiplyInt8:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(int8(a.Int64Value) * int8(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeMultiplyUInt8:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint8(a.Int64Value) * uint8(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeMultiplyInt16:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(int16(a.Int64Value) * int16(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeMultiplyUInt16:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint16(a.Int64Value) * uint16(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeMultiplyInt32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(a.Int32Value * b.Int32Value)
-			state.SP--
-			ip++
-
-		case OpCodeMultiplyUInt32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint32(a.Int64Value) * uint32(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeMultiplyInt64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(a.Int64Value * b.Int64Value)
-			state.SP--
-			ip++
-
-		case OpCodeMultiplyUInt64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint64(a.Int64Value) * uint64(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeMultiplyFloat32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(a.Float32Value * b.Float32Value)
-			state.SP--
-			ip++
-
-		case OpCodeMultiplyFloat64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(a.Float64Value * b.Float64Value)
-			state.SP--
+		case op >= OpCodeMultiplyInt8 && op <= OpCodeMultiplyFloat64:
+			OpFunc2(state, &OpFuncV2.OpCodeMultiply, op)
 			ip++
 
 		// --- Arithmetic: Divide ---
-		case OpCodeDivideInt8:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(int8(a.Int64Value) / int8(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeDivideUInt8:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint8(a.Int64Value) / uint8(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeDivideInt16:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(int16(a.Int64Value) / int16(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeDivideUInt16:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint16(a.Int64Value) / uint16(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeDivideInt32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(a.Int32Value / b.Int32Value)
-			state.SP--
-			ip++
-
-		case OpCodeDivideUInt32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint32(a.Int64Value) / uint32(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeDivideInt64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(a.Int64Value / b.Int64Value)
-			state.SP--
-			ip++
-
-		case OpCodeDivideUInt64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint64(a.Int64Value) / uint64(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeDivideFloat32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(a.Float32Value / b.Float32Value)
-			state.SP--
-			ip++
-
-		case OpCodeDivideFloat64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(a.Float64Value / b.Float64Value)
-			state.SP--
+		case op >= OpCodeDivideInt8 && op <= OpCodeDivideFloat64:
+			OpFunc2(state, &OpFuncV2.OpCodeDivide, op)
 			ip++
 
 		// --- Arithmetic: Modulo ---
-		case OpCodeModuloInt8:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(int8(a.Int64Value) % int8(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeModuloUInt8:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint8(a.Int64Value) % uint8(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeModuloInt16:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(int16(a.Int64Value) % int16(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeModuloUInt16:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint16(a.Int64Value) % uint16(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeModuloInt32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(a.Int32Value % b.Int32Value)
-			state.SP--
-			ip++
-
-		case OpCodeModuloUInt32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint32(a.Int64Value) % uint32(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeModuloInt64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(a.Int64Value % b.Int64Value)
-			state.SP--
-			ip++
-
-		case OpCodeModuloUInt64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint64(a.Int64Value) % uint64(b.Int64Value))
-			state.SP--
+		case op >= OpCodeModuloInt8 && op <= OpCodeModuloFloat64:
+			OpFunc2(state, &OpFuncV2.OpCodeModulo, op)
 			ip++
 
 		// --- Arithmetic: Shift Left ---
-		case OpCodeShiftLeftInt8:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(int8(a.Int64Value) << uint(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeShiftLeftUInt8:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint8(a.Int64Value) << uint(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeShiftLeftInt16:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(int16(a.Int64Value) << uint(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeShiftLeftUInt16:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint16(a.Int64Value) << uint(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeShiftLeftInt32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(a.Int32Value << uint(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeShiftLeftUInt32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint32(a.Int64Value) << uint(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeShiftLeftInt64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(a.Int64Value << uint(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeShiftLeftUInt64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint64(a.Int64Value) << uint(b.Int64Value))
-			state.SP--
+		case op >= OpCodeShiftLeftInt8 && op <= OpCodeShiftLeftFloat64:
+			OpFunc2(state, &OpFuncV2.OpCodeShiftLeft, op)
 			ip++
 
 		// --- Arithmetic: Shift Right ---
-		case OpCodeShiftRightInt8:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(int8(a.Int64Value) >> uint(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeShiftRightUInt8:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint8(a.Int64Value) >> uint(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeShiftRightInt16:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(int16(a.Int64Value) >> uint(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeShiftRightUInt16:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint16(a.Int64Value) >> uint(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeShiftRightInt32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(a.Int32Value >> uint(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeShiftRightUInt32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint32(a.Int64Value) >> uint(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeShiftRightInt64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(a.Int64Value >> uint(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeShiftRightUInt64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint64(a.Int64Value) >> uint(b.Int64Value))
-			state.SP--
+		case op >= OpCodeShiftRightInt8 && op <= OpCodeShiftRightFloat64:
+			OpFunc2(state, &OpFuncV2.OpCodeShiftRight, op)
 			ip++
 
 		// --- Bitwise: And ---
-		case OpCodeBinaryAndInt8:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(int8(a.Int64Value) & int8(b.Int64Value))
-			state.SP--
+		case op >= OpCodeBinaryAndInt8 && op <= OpCodeBinaryAndFloat64:
+			OpFunc2(state, &OpFuncV2.OpCodeBinaryAnd, op)
 			ip++
 
-		case OpCodeBinaryAndUInt8:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint8(a.Int64Value) & uint8(b.Int64Value))
-			state.SP--
+		// --- Bitwise: Or ---
+		case op >= OpCodeBinaryOrInt8 && op <= OpCodeBinaryOrFloat64:
+			OpFunc2(state, &OpFuncV2.OpCodeBinaryOr, op)
 			ip++
 
-		case OpCodeBinaryAndInt16:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(int16(a.Int64Value) & int16(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeBinaryAndUInt16:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint16(a.Int64Value) & uint16(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeBinaryAndInt32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(a.Int32Value & b.Int32Value)
-			state.SP--
-			ip++
-
-		case OpCodeBinaryAndUInt32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint32(a.Int64Value) & uint32(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeBinaryAndInt64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(a.Int64Value & b.Int64Value)
-			state.SP--
-			ip++
-
-		case OpCodeBinaryAndUInt64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint64(a.Int64Value) & uint64(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeBinaryOrInt8:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(int8(a.Int64Value) | int8(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeBinaryOrUInt8:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint8(a.Int64Value) | uint8(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeBinaryOrInt16:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(int16(a.Int64Value) | int16(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeBinaryOrUInt16:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint16(a.Int64Value) | uint16(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeBinaryOrInt32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(a.Int32Value | b.Int32Value)
-			state.SP--
-			ip++
-
-		case OpCodeBinaryOrUInt32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint32(a.Int64Value) | uint32(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeBinaryOrInt64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(a.Int64Value | b.Int64Value)
-			state.SP--
-			ip++
-
-		case OpCodeBinaryOrUInt64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint64(a.Int64Value) | uint64(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeBinaryXorInt8:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(int8(a.Int64Value) ^ int8(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeBinaryXorUInt8:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint8(a.Int64Value) ^ uint8(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeBinaryXorInt16:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(int16(a.Int64Value) ^ int16(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeBinaryXorUInt16:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint16(a.Int64Value) ^ uint16(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeBinaryXorInt32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(a.Int32Value ^ b.Int32Value)
-			state.SP--
-			ip++
-
-		case OpCodeBinaryXorUInt32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint32(a.Int64Value) ^ uint32(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeBinaryXorInt64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(a.Int64Value ^ b.Int64Value)
-			state.SP--
-			ip++
-
-		case OpCodeBinaryXorUInt64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = ValueOf(uint64(a.Int64Value) ^ uint64(b.Int64Value))
-			state.SP--
+		// --- Bitwise: Xor ---
+		case op >= OpCodeBinaryXorInt8 && op <= OpCodeBinaryXorFloat64:
+			OpFunc2(state, &OpFuncV2.OpCodeBinaryXor, op)
 			ip++
 
 		// --- Relational: EqualTo ---
-		case OpCodeEqualToInt8:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = boolToValue(int8(a.Int64Value) == int8(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeEqualToUInt8:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = boolToValue(uint8(a.Int64Value) == uint8(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeEqualToInt16:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = boolToValue(int16(a.Int64Value) == int16(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeEqualToUInt16:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = boolToValue(uint16(a.Int64Value) == uint16(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeEqualToInt32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = boolToValue(a.Int32Value == b.Int32Value)
-			state.SP--
-			ip++
-
-		case OpCodeEqualToInt64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = boolToValue(a.Int64Value == b.Int64Value)
-			state.SP--
-			ip++
-
-		case OpCodeEqualToUInt32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = boolToValue(uint32(a.Int64Value) == uint32(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeEqualToUInt64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = boolToValue(uint64(a.Int64Value) == uint64(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeEqualToFloat32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = boolToValue(a.Float32Value == b.Float32Value)
-			state.SP--
-			ip++
-
-		case OpCodeEqualToFloat64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = boolToValue(a.Float64Value == b.Float64Value)
-			state.SP--
+		case op >= OpCodeEqualToInt8 && op <= OpCodeEqualToFloat64:
+			OpFunc2(state, &OpFuncV2.OpCodeEqualTo, op)
 			ip++
 
 		// --- Relational: LessThan ---
-		case OpCodeLessThanInt8:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = boolToValue(int8(a.Int64Value) < int8(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeLessThanUInt8:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = boolToValue(uint8(a.Int64Value) < uint8(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeLessThanInt16:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = boolToValue(int16(a.Int64Value) < int16(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeLessThanUInt16:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = boolToValue(uint16(a.Int64Value) < uint16(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeLessThanInt32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = boolToValue(a.Int32Value < b.Int32Value)
-			state.SP--
-			ip++
-
-		case OpCodeLessThanInt64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = boolToValue(a.Int64Value < b.Int64Value)
-			state.SP--
-			ip++
-
-		case OpCodeLessThanUInt32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = boolToValue(uint32(a.Int64Value) < uint32(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeLessThanUInt64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = boolToValue(uint64(a.Int64Value) < uint64(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeLessThanFloat32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = boolToValue(a.Float32Value < b.Float32Value)
-			state.SP--
-			ip++
-
-		case OpCodeLessThanFloat64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = boolToValue(a.Float64Value < b.Float64Value)
-			state.SP--
+		case op >= OpCodeLessThanInt8 && op <= OpCodeLessThanFloat64:
+			OpFunc2(state, &OpFuncV2.OpCodeLessThan, op)
 			ip++
 
 		// --- Relational: GreaterThan ---
-		case OpCodeGreaterThanInt8:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = boolToValue(int8(a.Int64Value) > int8(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeGreaterThanUInt8:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = boolToValue(uint8(a.Int64Value) > uint8(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeGreaterThanInt16:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = boolToValue(int16(a.Int64Value) > int16(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeGreaterThanUInt16:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = boolToValue(uint16(a.Int64Value) > uint16(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeGreaterThanInt32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = boolToValue(a.Int32Value > b.Int32Value)
-			state.SP--
-			ip++
-
-		case OpCodeGreaterThanInt64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = boolToValue(a.Int64Value > b.Int64Value)
-			state.SP--
-			ip++
-
-		case OpCodeGreaterThanUInt32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = boolToValue(uint32(a.Int64Value) > uint32(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeGreaterThanUInt64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = boolToValue(uint64(a.Int64Value) > uint64(b.Int64Value))
-			state.SP--
-			ip++
-
-		case OpCodeGreaterThanFloat32:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = boolToValue(a.Float32Value > b.Float32Value)
-			state.SP--
-			ip++
-
-		case OpCodeGreaterThanFloat64:
-			a, b := state.Stack[state.SP-2], state.Stack[state.SP-1]
-			state.Stack[state.SP-2] = boolToValue(a.Float64Value > b.Float64Value)
-			state.SP--
+		case op >= OpCodeGreaterThanInt8 && op <= OpCodeGreaterThanFloat64:
+			OpFunc2(state, &OpFuncV2.OpCodeGreaterThan, op)
 			ip++
 
 		// --- Unary: Not ---
-		case OpCodeNotInt8:
-			a := state.Stack[state.SP-1]
-			state.Stack[state.SP-1] = boolToValue(int8(a.Int64Value) == 0)
-			ip++
-
-		case OpCodeNotUInt8:
-			a := state.Stack[state.SP-1]
-			state.Stack[state.SP-1] = boolToValue(uint8(a.Int64Value) == 0)
-			ip++
-
-		case OpCodeNotInt16:
-			a := state.Stack[state.SP-1]
-			state.Stack[state.SP-1] = boolToValue(int16(a.Int64Value) == 0)
-			ip++
-
-		case OpCodeNotUInt16:
-			a := state.Stack[state.SP-1]
-			state.Stack[state.SP-1] = boolToValue(uint16(a.Int64Value) == 0)
-			ip++
-
-		case OpCodeNotInt32:
-			a := state.Stack[state.SP-1]
-			state.Stack[state.SP-1] = boolToValue(a.Int32Value == 0)
-			ip++
-
-		case OpCodeNotUInt32:
-			a := state.Stack[state.SP-1]
-			state.Stack[state.SP-1] = boolToValue(uint32(a.Int64Value) == 0)
-			ip++
-
-		case OpCodeNotInt64:
-			a := state.Stack[state.SP-1]
-			state.Stack[state.SP-1] = boolToValue(a.Int64Value == 0)
-			ip++
-
-		case OpCodeNotUInt64:
-			a := state.Stack[state.SP-1]
-			state.Stack[state.SP-1] = boolToValue(uint64(a.Int64Value) == 0)
+		case op >= OpCodeNotInt8 && op <= OpCodeNotFloat64:
+			OpFunc1(state, &OpFuncV1.OpCodeNot, op)
 			ip++
 
 		// --- Unary: BinaryNot ---
-		case OpCodeBinaryNotInt8:
-			a := state.Stack[state.SP-1]
-			state.Stack[state.SP-1] = ValueOf(^int8(a.Int64Value))
+		case op >= OpCodeBinaryNotInt8 && op <= OpCodeBinaryNotFloat64:
+			OpFunc1(state, &OpFuncV1.OpCodeBinaryNot, op)
 			ip++
 
-		case OpCodeBinaryNotUInt8:
-			a := state.Stack[state.SP-1]
-			state.Stack[state.SP-1] = ValueOf(^uint8(a.Int64Value))
-			ip++
-
-		case OpCodeBinaryNotInt16:
-			a := state.Stack[state.SP-1]
-			state.Stack[state.SP-1] = ValueOf(^int16(a.Int64Value))
-			ip++
-
-		case OpCodeBinaryNotUInt16:
-			a := state.Stack[state.SP-1]
-			state.Stack[state.SP-1] = ValueOf(^uint16(a.Int64Value))
-			ip++
-
-		case OpCodeBinaryNotInt32:
-			a := state.Stack[state.SP-1]
-			state.Stack[state.SP-1] = ValueOf(^a.Int32Value)
-			ip++
-
-		case OpCodeBinaryNotUInt32:
-			a := state.Stack[state.SP-1]
-			state.Stack[state.SP-1] = ValueOf(^uint32(a.Int64Value))
-			ip++
-
-		case OpCodeBinaryNotInt64:
-			a := state.Stack[state.SP-1]
-			state.Stack[state.SP-1] = ValueOf(^a.Int64Value)
-			ip++
-
-		case OpCodeBinaryNotUInt64:
-			a := state.Stack[state.SP-1]
-			state.Stack[state.SP-1] = ValueOf(^uint64(a.Int64Value))
-			ip++
-
-			// --- Unary: Negate ---
-		case OpCodeNegateInt8:
-			a := state.Stack[state.SP-1]
-			state.Stack[state.SP-1] = ValueOf(-int8(a.Int64Value))
-			ip++
-
-		case OpCodeNegateUInt8:
-			a := state.Stack[state.SP-1]
-			state.Stack[state.SP-1] = ValueOf(-uint8(a.Int64Value))
-			ip++
-
-		case OpCodeNegateInt16:
-			a := state.Stack[state.SP-1]
-			state.Stack[state.SP-1] = ValueOf(-int16(a.Int64Value))
-			ip++
-
-		case OpCodeNegateUInt16:
-			a := state.Stack[state.SP-1]
-			state.Stack[state.SP-1] = ValueOf(-uint16(a.Int64Value))
-			ip++
-
-		case OpCodeNegateInt32:
-			a := state.Stack[state.SP-1]
-			state.Stack[state.SP-1] = ValueOf(-a.Int32Value)
-			ip++
-
-		case OpCodeNegateUInt32:
-			a := state.Stack[state.SP-1]
-			state.Stack[state.SP-1] = ValueOf(-uint32(a.Int64Value))
-			ip++
-
-		case OpCodeNegateInt64:
-			a := state.Stack[state.SP-1]
-			state.Stack[state.SP-1] = ValueOf(-a.Int64Value)
-			ip++
-
-		case OpCodeNegateUInt64:
-			a := state.Stack[state.SP-1]
-			state.Stack[state.SP-1] = ValueOf(-uint64(a.Int64Value))
-			ip++
-
-		case OpCodeNegateFloat32:
-			a := state.Stack[state.SP-1]
-			state.Stack[state.SP-1] = ValueOf(-a.Float32Value)
-			ip++
-
-		case OpCodeNegateFloat64:
-			a := state.Stack[state.SP-1]
-			state.Stack[state.SP-1] = ValueOf(-a.Float64Value)
+		// --- Unary: Negate ---
+		case op >= OpCodeNegateInt8 && op <= OpCodeNegateFloat64:
+			OpFunc1(state, &OpFuncV1.OpCodeNegate, op)
 			ip++
 
 		// --- Conversion opcodes ---
 		// ConvertXtoY opcodes: base = OpCodeConvertInt8Int8, encoded as fromOffset*10 + toOffset
 		default:
-			if i.Op >= int(OpCodeConvertInt8Int8) && i.Op < int(OpCodeConvertInt8Int8)+100 {
-				offset := i.Op - int(OpCodeConvertInt8Int8)
+			if i.Op >= OpCodeConvertPointerInt8 && i.Op <= OpCodeConvertPointerFloat64 {
+				offset := int(i.Op - OpCodeConvertPointerInt8)
+				toType := offset % 10
+				v := state.Stack[state.SP-1]
+				state.Stack[state.SP-1] = convertPointerValue(v, toType)
+				ip++
+			} else if i.Op >= OpCodeConvertInt8Int8 && i.Op < OpCode(OpCodeConvertInt8Int8)+100 {
+				offset := int(i.Op - OpCodeConvertInt8Int8)
 				fromType := offset / 10
 				toType := offset % 10
 				v := state.Stack[state.SP-1]
 				state.Stack[state.SP-1] = convertValue(v, fromType, toType)
-				ip++
-			} else if i.Op >= int(OpCodeConvertPointerInt8) && i.Op <= int(OpCodeConvertPointerFloat64) {
-				offset := i.Op - int(OpCodeConvertPointerInt8)
-				toType := offset % 10
-				v := state.Stack[state.SP-1]
-				state.Stack[state.SP-1] = convertPointerValue(v, toType)
 				ip++
 			} else {
 				panic(fmt.Sprintf("Unknown opcode %d at ip=%d in %s", i.Op, ip, f.Name))
@@ -1222,39 +452,39 @@ func convertValue(v Value, fromType, toType int) Value {
 	switch fromType {
 	case 0: // Int8
 		val = int64(int8(val))
-	case 1: // Int16
+	case 2: // Int16
 		val = int64(int16(val))
-	case 2: // Int32
+	case 4: // Int32
 		val = int64(int32(val))
-	case 3: // Int64
-	case 4: // UInt8
+	case 6: // Int64
+	case 1: // UInt8
 		val = int64(uint8(val))
-	case 5: // UInt16
+	case 3: // UInt16
 		val = int64(uint16(val))
-	case 6: // UInt32
+	case 5: // UInt32
 		val = int64(uint32(val))
 	case 7: // UInt64
 		val = int64(uint64(val))
 	case 8: // Float32
-		val = int64(v.Float32Value)
+		val = int64(v.Float32Value())
 	case 9: // Float64
-		val = int64(v.Float64Value)
+		val = int64(v.Float64Value())
 	}
 
 	switch toType {
 	case 0: // Int8
 		return ValueOf(int8(val))
-	case 1: // Int16
+	case 2: // Int16
 		return ValueOf(int16(val))
-	case 2: // Int32
+	case 4: // Int32
 		return ValueOf(int32(val))
-	case 3: // Int64
+	case 6: // Int64
 		return ValueOf(val)
-	case 4: // UInt8
+	case 1: // UInt8
 		return ValueOf(uint8(val))
-	case 5: // UInt16
+	case 3: // UInt16
 		return ValueOf(uint16(val))
-	case 6: // UInt32
+	case 5: // UInt32
 		return ValueOf(uint32(val))
 	case 7: // UInt64
 		return ValueOf(uint64(val))
@@ -1267,7 +497,7 @@ func convertValue(v Value, fromType, toType int) Value {
 }
 
 func convertPointerValue(v Value, toType int) Value {
-	ptr := v.PointerValue
+	ptr := v.PointerValue()
 	switch toType {
 	case 0:
 		return ValueOf(int8(ptr))
@@ -1383,7 +613,7 @@ func (ci *CInterpreter) ReadArg(index int) Value {
 }
 
 func (ci *CInterpreter) CallValue(functionAddress Value) {
-	ci.Call(ci.exe.Functions[functionAddress.PointerValue])
+	ci.Call(ci.exe.Functions[functionAddress.PointerValue()])
 }
 
 func (ci *CInterpreter) Call(function BaseFunction) {

@@ -1,6 +1,8 @@
 package cxxParser
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // ── VariableScope ────────────────────────────────────────────────────────────
 
@@ -69,9 +71,9 @@ func (d *IdentifierDeclarator) String() string { return d.Name }
 // ── PointerDeclarator ────────────────────────────────────────────────────────
 
 type PointerDeclarator struct {
-	Pointer       *Pointer
+	Pointer         *Pointer
 	InnerDeclarator Declarator
-	StrongBinding bool
+	StrongBinding   bool
 }
 
 func NewPointerDeclarator(ptr *Pointer, inner Declarator) *PointerDeclarator {
@@ -220,12 +222,6 @@ func (d *FunctionDeclarator) CouldBeCtorCall() bool {
 	return false
 }
 
-// ── MakeArrayDeclarator ──────────────────────────────────────────────────────
-
-func MakeArrayDeclarator(inner Declarator, q TypeQualifiers, length Expression, isStatic bool) Declarator {
-	return NewArrayDeclarator(inner, q, length, isStatic)
-}
-
 // ── Declaration interface ────────────────────────────────────────────────────
 
 type Declaration interface {
@@ -245,6 +241,7 @@ func NewExpressionStatement(expr Expression) *ExpressionStatement {
 
 func (s *ExpressionStatement) AlwaysReturns() bool { return false }
 
+//goland:noinspection GoUnusedParameter
 func (s *ExpressionStatement) AddDeclarationToBlock(ctx *BlockContext) {}
 
 func (s *ExpressionStatement) DoEmit(ec *EmitContext) {
@@ -267,14 +264,14 @@ func (s *ExpressionStatement) String() string {
 
 type Block struct {
 	StatementBase
-	Statements    []Statement
-	Variables     []*CompiledVariable
-	Typedefs      map[string]CType
-	Structures    map[string]*CStructType
-	Functions     []*CompiledFunction
-	Enums         map[string]*CEnumType
+	Statements     []Statement
+	Variables      []*CompiledVariable
+	Typedefs       map[string]CType
+	Structures     map[string]*CStructType
+	Functions      []*CompiledFunction
+	Enums          map[string]*CEnumType
 	InitStatements []Statement
-	Scope         VariableScope
+	Scope          VariableScope
 }
 
 func NewBlock(scope VariableScope) *Block {
@@ -317,17 +314,47 @@ func (b *Block) AddDeclarationToBlock(ctx *BlockContext) {
 }
 
 func (b *Block) DoEmit(ec *EmitContext) {
-	for _, s := range b.Statements {
-		s.Emit(ec)
-	}
-}
-
-func (b *Block) Emit(ec *EmitContext) {
+	/*
+	   ec.BeginBlock (this);
+	   // Emit vptr initialization for local polymorphic variables
+	   foreach (var v in Variables) {
+	       if (v.VariableType is CStructType st && st.IsPolymorphic && st.VTableGlobalAddress.HasValue) {
+	           // StorePointer pops: [value, address] and stores value at address
+	           ec.Emit (OpCode.LoadConstant, Value.Pointer (st.VTableGlobalAddress.Value)); // value = vtable addr
+	           ec.Emit (OpCode.LoadFramePointer);                                           // FP
+	           ec.Emit (OpCode.LoadConstant, Value.Pointer (v.StackOffset));                // local offset
+	           ec.Emit (OpCode.OffsetPointer);                                              // FP + offset = &variable
+	           ec.Emit (OpCode.StorePointer);                                               // store vtable addr at variable[0]
+	       }
+	   }
+	   foreach (var s in Statements) {
+	       s.Emit (ec);
+	   }
+	   ec.EndBlock ();
+	*/
 	ec.self.BeginBlock(b)
+	// Emit vptr initialization for local polymorphic variables
+	for _, v := range b.Variables {
+		if st, ok := v.VariableType.(*CStructType); ok {
+			if st.IsPolymorphic() && st.VTableGlobalAddress != nil {
+				// StorePointer pops: [value, address] and stores value at address
+				ec.Emit(OpCodeLoadConstant, ValuePointer(*st.VTableGlobalAddress)) // value = vtable addr
+				ec.Emit(OpCodeLoadFramePointer, UnionValue(0))                     // FP
+				ec.Emit(OpCodeLoadConstant, ValuePointer(v.StackOffset))           // local offset
+				ec.Emit(OpCodeOffsetPointer, UnionValue(0))                        // FP + offset = &variable
+				ec.Emit(OpCodeStorePointer, UnionValue(0))                         // store vtable addr at variable[0]
+			}
+		}
+	}
+
 	for _, s := range b.Statements {
 		s.Emit(ec)
 	}
 	ec.self.EndBlock()
+}
+
+func (b *Block) Emit(ec *EmitContext) {
+	b.DoEmit(ec)
 }
 
 func (b *Block) String() string { return "{...}" }
@@ -364,6 +391,7 @@ func sanitizeName(filePath string) string {
 	return filePath
 }
 
+//goland:noinspection GoUnusedParameter
 func (tu *TranslationUnit) AddDeclarationToBlock(ctx *BlockContext) {}
 
 // ── ScopeResolutionExpression ────────────────────────────────────────────────
@@ -381,11 +409,21 @@ func NewScopeResolutionExpression(left, right string) *ScopeResolutionExpression
 }
 
 func (e *ScopeResolutionExpression) GetEvaluatedCType(ec *EmitContext) CType {
+	rv := ec.TryResolveQualifiedFunction(e.TypeName, e.MemberName, nil)
+	if rv != nil {
+		return rv.VariableType
+	}
 	return CBasicTypeSignedInt
 }
 
 func (e *ScopeResolutionExpression) Emit(ec *EmitContext) {
-	ec.Emit(OpCodeLoadConstant, ValueOf(0))
+	rv := ec.TryResolveQualifiedFunction(e.TypeName, e.MemberName, nil)
+	if rv != nil {
+		rv.Emit(ec)
+	} else {
+		ec.GetReport().Error(103, fmt.Sprintf("'%s::%s' not found", e.TypeName, e.MemberName))
+		ec.Emit(OpCodeLoadConstant, ValueOf(0))
+	}
 }
 
 func (e *ScopeResolutionExpression) EmitPointer(ec *EmitContext) { defaultEmitPointer(ec) }
@@ -405,13 +443,32 @@ func (e *ScopeResolutionExpression) String() string {
 type RelationalOp int
 
 const (
-	RelationalOpLessThan          RelationalOp = 0
-	RelationalOpGreaterThan       RelationalOp = 1
-	RelationalOpLessThanOrEqual   RelationalOp = 2
+	RelationalOpLessThan           RelationalOp = 0
+	RelationalOpGreaterThan        RelationalOp = 1
+	RelationalOpLessThanOrEqual    RelationalOp = 2
 	RelationalOpGreaterThanOrEqual RelationalOp = 3
-	RelationalOpEquals            RelationalOp = 4
-	RelationalOpNotEquals         RelationalOp = 5
+	RelationalOpEquals             RelationalOp = 4
+	RelationalOpNotEquals          RelationalOp = 5
 )
+
+func (op RelationalOp) String() string {
+	switch op {
+	case RelationalOpEquals:
+		return "Equals"
+	case RelationalOpNotEquals:
+		return "NotEquals"
+	case RelationalOpLessThan:
+		return "LessThan"
+	case RelationalOpGreaterThan:
+		return "GreaterThan"
+	case RelationalOpLessThanOrEqual:
+		return "LessThanOrEqual"
+	case RelationalOpGreaterThanOrEqual:
+		return "GreaterThanOrEqual"
+	default:
+		return "Unknown"
+	}
+}
 
 type RelationalExpression struct {
 	ExpressionBase
@@ -425,13 +482,22 @@ func NewRelationalExpression(left Expression, op RelationalOp, right Expression)
 }
 
 func (e *RelationalExpression) GetEvaluatedCType(ec *EmitContext) CType {
-	return CBasicTypeSignedInt
+	leftType := e.Left.GetEvaluatedCType(ec)
+	rightType := e.Right.GetEvaluatedCType(ec)
+	if ft := TryResolveBinaryOperatorType(ec, leftType, rightType, e.Op.String()); ft != nil {
+		return ft.ReturnType
+	}
+	return CBasicTypeBool
 }
 
 func (e *RelationalExpression) Emit(ec *EmitContext) {
 	leftType := e.Left.GetEvaluatedCType(ec)
 	rightType := e.Right.GetEvaluatedCType(ec)
-	aType := GetArithmeticType(e.Left, e.Right, "compare", ec)
+	if TryEmitBinaryOperatorCall(ec, leftType, rightType, e.Left, e.Right, RelOpToOperatorName(e.Op)) {
+		return
+	}
+
+	aType := GetArithmeticType(e.Left, e.Right, e.Op.String(), ec)
 
 	e.Left.Emit(ec)
 	ec.EmitCast(leftType, aType)
@@ -439,6 +505,8 @@ func (e *RelationalExpression) Emit(ec *EmitContext) {
 	ec.EmitCast(rightType, aType)
 
 	ioff := ec.GetInstructionOffset(aType)
+	// The comparison result is always CBasicTypeSignedInt, use its offset for Not opcodes
+	relIoff := ec.GetInstructionOffset(CBasicTypeSignedInt)
 	switch e.Op {
 	case RelationalOpLessThan:
 		ec.Emit(OpCodeLessThanInt8+OpCode(ioff), ValueOf(0))
@@ -446,15 +514,15 @@ func (e *RelationalExpression) Emit(ec *EmitContext) {
 		ec.Emit(OpCodeGreaterThanInt8+OpCode(ioff), ValueOf(0))
 	case RelationalOpLessThanOrEqual:
 		ec.Emit(OpCodeGreaterThanInt8+OpCode(ioff), ValueOf(0))
-		ec.Emit(OpCodeNotInt8+OpCode(ioff), ValueOf(0))
+		ec.Emit(OpCodeNotInt8+OpCode(relIoff), ValueOf(0))
 	case RelationalOpGreaterThanOrEqual:
 		ec.Emit(OpCodeLessThanInt8+OpCode(ioff), ValueOf(0))
-		ec.Emit(OpCodeNotInt8+OpCode(ioff), ValueOf(0))
+		ec.Emit(OpCodeNotInt8+OpCode(relIoff), ValueOf(0))
 	case RelationalOpEquals:
 		ec.Emit(OpCodeEqualToInt8+OpCode(ioff), ValueOf(0))
 	case RelationalOpNotEquals:
 		ec.Emit(OpCodeEqualToInt8+OpCode(ioff), ValueOf(0))
-		ec.Emit(OpCodeNotInt8+OpCode(ioff), ValueOf(0))
+		ec.Emit(OpCodeNotInt8+OpCode(relIoff), ValueOf(0))
 	}
 }
 
@@ -543,7 +611,7 @@ func (e *SequenceExpression) String() string {
 
 type IfStatement struct {
 	StatementBase
-	Condition  Expression
+	Condition     Expression
 	ThenStatement Statement
 	ElseStatement Statement
 }
@@ -558,10 +626,10 @@ func NewIfStatement(cond Expression, thenStmt Statement, location Location) *IfS
 
 func NewIfElseStatement(cond Expression, thenStmt, elseStmt Statement, location Location) *IfStatement {
 	return &IfStatement{
-		StatementBase:  StatementBase{Location: location},
-		Condition:      cond,
-		ThenStatement:  thenStmt,
-		ElseStatement:  elseStmt,
+		StatementBase: StatementBase{Location: location},
+		Condition:     cond,
+		ThenStatement: thenStmt,
+		ElseStatement: elseStmt,
 	}
 }
 
@@ -572,6 +640,7 @@ func (s *IfStatement) AlwaysReturns() bool {
 	return false
 }
 
+//goland:noinspection GoUnusedParameter
 func (s *IfStatement) AddDeclarationToBlock(ctx *BlockContext) {}
 
 func (s *IfStatement) DoEmit(ec *EmitContext) {
@@ -639,6 +708,7 @@ func (s *SwitchStatement) AlwaysReturns() bool {
 	return len(s.Cases) > 0
 }
 
+//goland:noinspection GoUnusedParameter
 func (s *SwitchStatement) AddDeclarationToBlock(ctx *BlockContext) {}
 
 func (s *SwitchStatement) DoEmit(ec *EmitContext) {
@@ -714,7 +784,10 @@ func NewWhileStatement(isDoWhile bool, cond Expression, body *Block) *WhileState
 
 func (s *WhileStatement) AlwaysReturns() bool { return false }
 
-func (s *WhileStatement) AddDeclarationToBlock(ctx *BlockContext) {}
+//goland:noinspection GoUnusedParameter
+func (s *WhileStatement) AddDeclarationToBlock(ctx *BlockContext) {
+	s.Body.AddDeclarationToBlock(ctx)
+}
 
 func (s *WhileStatement) DoEmit(ec *EmitContext) {
 	condLabel := ec.DefineLabel()
@@ -837,9 +910,16 @@ func NewGotoStatement(label string, location Location) *GotoStatement {
 
 func (s *GotoStatement) AlwaysReturns() bool { return false }
 
+//goland:noinspection GoUnusedParameter
 func (s *GotoStatement) AddDeclarationToBlock(ctx *BlockContext) {}
 
 func (s *GotoStatement) DoEmit(ec *EmitContext) {
+	f := ec.GetFunctionDecl()
+	if f == nil {
+		ec.GetReport().Error(9999, "goto statement used outside of function body")
+		return
+	}
+	
 	lbl := ec.self.ResolveGotoLabel(s.Label)
 	if lbl == nil {
 		ec.GetReport().Error(107, fmt.Sprintf("undefined label '%s'", s.Label))
@@ -862,13 +942,17 @@ func NewContinueStatement() *ContinueStatement { return &ContinueStatement{} }
 
 func (s *ContinueStatement) AlwaysReturns() bool { return false }
 
+//goland:noinspection GoUnusedParameter
 func (s *ContinueStatement) AddDeclarationToBlock(ctx *BlockContext) {}
 
 func (s *ContinueStatement) DoEmit(ec *EmitContext) {
 	lbl := ec.self.ContinueLabel()
 	if lbl != nil {
 		ec.EmitBranchP(OpCodeJump, lbl)
+		return
 	}
+	
+	ec.GetReport().Error(139, "No enclosing statement out of which to continue")
 }
 
 func (s *ContinueStatement) Emit(ec *EmitContext) { s.DoEmit(ec) }
@@ -885,13 +969,17 @@ func NewBreakStatement() *BreakStatement { return &BreakStatement{} }
 
 func (s *BreakStatement) AlwaysReturns() bool { return false }
 
+//goland:noinspection GoUnusedParameter
 func (s *BreakStatement) AddDeclarationToBlock(ctx *BlockContext) {}
 
 func (s *BreakStatement) DoEmit(ec *EmitContext) {
 	lbl := ec.self.BreakLabel()
 	if lbl != nil {
 		ec.EmitBranchP(OpCodeJump, lbl)
+		return
 	}
+
+	ec.GetReport().Error(139, "No enclosing statement out of which to break")
 }
 
 func (s *BreakStatement) Emit(ec *EmitContext) { s.DoEmit(ec) }
@@ -913,15 +1001,31 @@ func NewReturnValueStatement(value Expression) *ReturnStatement {
 
 func (s *ReturnStatement) AlwaysReturns() bool { return true }
 
+//goland:noinspection GoUnusedParameter
 func (s *ReturnStatement) AddDeclarationToBlock(ctx *BlockContext) {}
 
 func (s *ReturnStatement) DoEmit(ec *EmitContext) {
-	if s.Value != nil {
-		s.Value.Emit(ec)
-	} else {
-		ec.Emit(OpCodeLoadConstant, ValueOf(0))
+	f := ec.GetFunctionDecl()
+	if f == nil {
+		ec.GetReport().Error(1519, "Invalid return outside of function")
+		return
 	}
-	ec.Emit(OpCodeReturn, ValueOf(0))
+
+	if s.Value != nil {
+		if f.FunctionType.ReturnType.IsVoid() {
+			ec.GetReport().Error(127, "A return keyword must not be followed by any expression when the function returns void")
+		} else {
+			s.Value.Emit(ec)
+			ec.EmitCast(s.Value.GetEvaluatedCType(ec), f.FunctionType.ReturnType)
+			ec.Emit(OpCodeReturn, ValueOf(0))
+		}
+	} else {
+		if f.FunctionType.ReturnType.IsVoid() {
+			ec.Emit(OpCodeReturn, ValueOf(0))
+		} else {
+			ec.GetReport().Error(126, "A value is required for the return statement")
+		}
+	}
 }
 
 func (s *ReturnStatement) Emit(ec *EmitContext) { s.DoEmit(ec) }
@@ -951,6 +1055,7 @@ func NewLabeledStatement(label string, stmt Statement, location Location) *Label
 
 func (s *LabeledStatement) AlwaysReturns() bool { return s.Statement.AlwaysReturns() }
 
+//goland:noinspection GoUnusedParameter
 func (s *LabeledStatement) AddDeclarationToBlock(ctx *BlockContext) {}
 
 func (s *LabeledStatement) DoEmit(ec *EmitContext) {

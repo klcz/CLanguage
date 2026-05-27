@@ -3,9 +3,11 @@
 
 package cxxParser
 
-
 // yyparse implements the LALR(1) parser driver.
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 func (p *CParser) yyparse(yyLex yyInput) interface{} {
 	if p.yyMax <= 0 {
@@ -13,8 +15,9 @@ func (p *CParser) yyparse(yyLex yyInput) interface{} {
 	}
 	yyState := 0
 	p.yyVal = nil
-	p.yyToken = -1
+	yyToken := -1
 	yyErrorFlag := 0
+	yyNCount := 0
 
 	if p.useGlobalStacks && p.yyStates != nil {
 		// use preallocated
@@ -46,26 +49,26 @@ continueYyLoop:
 		for { // yyDiscarded loop
 			var yyN int
 			if yyN = int(yyDefRed[yyState]); yyN == 0 {
-				if p.yyToken < 0 {
+				if yyToken < 0 {
 					if yyLex.advance() {
-						p.yyToken = yyLex.token()
+						yyToken = yyLex.token()
 					} else {
-						p.yyToken = 0
+						yyToken = 0
 					}
 					if p.debug != nil {
-						p.debug.lex(yyState, p.yyToken, yyname(p.yyToken), yyLex.value())
+						p.debug.lex(yyState, yyToken, yyname(yyToken), yyLex.value())
 					}
 				}
 				yyN = int(yySindex[yyState])
 				if yyN != 0 {
-					yyN += p.yyToken
-					if yyN >= 0 && yyN < len(yyTable) && int(yyCheck[yyN]) == p.yyToken {
+					yyN += yyToken
+					if yyN >= 0 && yyN < len(yyTable) && int(yyCheck[yyN]) == yyToken {
 						if p.debug != nil {
 							p.debug.shift(yyState, int(yyTable[yyN]), yyErrorFlag-1)
 						}
 						yyState = int(yyTable[yyN])
 						p.yyVal = yyLex.value()
-						p.yyToken = -1
+						yyToken = -1
 						if yyErrorFlag > 0 {
 							yyErrorFlag--
 						}
@@ -74,8 +77,8 @@ continueYyLoop:
 				}
 				yyN = int(yyRindex[yyState])
 				if yyN != 0 {
-					yyN += p.yyToken
-					if yyN >= 0 && yyN < len(yyTable) && int(yyCheck[yyN]) == p.yyToken {
+					yyN += yyToken
+					if yyN >= 0 && yyN < len(yyTable) && int(yyCheck[yyN]) == yyToken {
 						yyN = int(yyTable[yyN])
 					} else {
 						// Error handling
@@ -85,7 +88,7 @@ continueYyLoop:
 							if p.debug != nil {
 								p.debug.error("syntax error")
 							}
-							if p.yyToken == 0 || p.yyToken == p.eofToken {
+							if yyToken == 0 || yyToken == p.eofToken {
 								panic(newYyUnexpectedEof())
 							}
 							yyErrorFlag = 1
@@ -95,8 +98,8 @@ continueYyLoop:
 							for {
 								yyN = int(yySindex[p.yyStates[yyTop]])
 								if yyN != 0 {
-									yyN += TokenKindYYErrorCode
-									if yyN >= 0 && yyN < len(yyTable) && int(yyCheck[yyN]) == TokenKindYYErrorCode {
+									yyN += int(TokenKindYYErrorCode)
+									if yyN >= 0 && yyN < len(yyTable) && int(yyCheck[yyN]) == int(TokenKindYYErrorCode) {
 										if p.debug != nil {
 											p.debug.shift(p.yyStates[yyTop], int(yyTable[yyN]), 3)
 										}
@@ -118,16 +121,16 @@ continueYyLoop:
 							}
 							panic(yyException{message: "irrecoverable syntax error"})
 						case 3:
-							if p.yyToken == 0 {
+							if yyToken == 0 {
 								if p.debug != nil {
 									p.debug.reject()
 								}
 								panic(yyException{message: "irrecoverable syntax error at end-of-file"})
 							}
 							if p.debug != nil {
-								p.debug.discard(yyState, p.yyToken, yyname(p.yyToken), yyLex.value())
+								p.debug.discard(yyState, yyToken, yyname(yyToken), yyLex.value())
 							}
-							p.yyToken = -1
+							yyToken = -1
 							continue continueYyDiscarded
 						}
 					}
@@ -139,7 +142,7 @@ continueYyLoop:
 						if p.debug != nil {
 							p.debug.error("syntax error")
 						}
-						if p.yyToken == 0 || p.yyToken == p.eofToken {
+						if yyToken == 0 || yyToken == p.eofToken {
 							panic(newYyUnexpectedEof())
 						}
 						yyErrorFlag = 1
@@ -149,8 +152,8 @@ continueYyLoop:
 						for {
 							yyN = int(yySindex[p.yyStates[yyTop]])
 							if yyN != 0 {
-								yyN += TokenKindYYErrorCode
-								if yyN >= 0 && yyN < len(yyTable) && int(yyCheck[yyN]) == TokenKindYYErrorCode {
+								yyN += int(TokenKindYYErrorCode)
+								if yyN >= 0 && yyN < len(yyTable) && int(yyCheck[yyN]) == int(TokenKindYYErrorCode) {
 									if p.debug != nil {
 										p.debug.shift(p.yyStates[yyTop], int(yyTable[yyN]), 3)
 									}
@@ -172,16 +175,16 @@ continueYyLoop:
 						}
 						panic(yyException{message: "irrecoverable syntax error"})
 					case 3:
-						if p.yyToken == 0 {
+						if yyToken == 0 {
 							if p.debug != nil {
 								p.debug.reject()
 							}
 							panic(yyException{message: "irrecoverable syntax error at end-of-file"})
 						}
 						if p.debug != nil {
-							p.debug.discard(yyState, p.yyToken, yyname(p.yyToken), yyLex.value())
+							p.debug.discard(yyState, yyToken, yyname(yyToken), yyLex.value())
 						}
-						p.yyToken = -1
+						yyToken = -1
 						continue continueYyDiscarded
 					}
 				}
@@ -198,591 +201,605 @@ continueYyLoop:
 				p.yyVal = p.yyDefault(p.yyVals[yyV])
 			}
 
+			if len(p.DebugHelper) > 0 && strings.Contains(p.DebugHelper, "+DebugYyN") {
+				println(yyN)
+				if strings.Contains(p.DebugHelper, "+DebugYyN^"+FmtInt(yyN)+":") {
+					yyNCount += 1
+					if strings.Contains(p.DebugHelper, "+DebugYyN^"+FmtInt(yyN)+":"+FmtInt(yyNCount)) {
+						yyNCount = 0
+					}
+				}
+			}
+
 			switch yyN {
-		case 1:
-			t := p.lexer.CurrentToken()
-			p.yyVal = NewVariableExpression(p.yyVals[0+yyTop].(string), t.Location, t.EndLocation)
-		case 2, 3:
-			p.yyVal = NewConstantExpression(p.yyVals[0+yyTop])
-		case 4:
-			p.yyVal = ConstantExpressionTrue
-		case 5:
-			p.yyVal = ConstantExpressionFalse
-		case 6, 233:
-			p.yyVal = p.yyVals[-1+yyTop]
-		case 7:
-			p.yyVal = NewScopeResolutionExpression(p.yyVals[-2+yyTop].(string), p.yyVals[0+yyTop].(string))
-		case 8, 20, 32, 34, 62, 79, 148, 202, 207, 269:
-			p.yyVal = p.yyVals[0+yyTop]
-		case 9:
-			p.yyVal = NewArrayElementExpression(p.yyVals[-3+yyTop].(Expression), p.yyVals[-1+yyTop].(Expression))
-		case 10:
-			p.yyVal = NewFuncallExpression(p.yyVals[-2+yyTop].(Expression))
-		case 11:
-			p.yyVal = NewFuncallExpressionWithArgs(p.yyVals[-3+yyTop].(Expression), p.yyVals[-1+yyTop].([]Expression))
-		case 12:
-			p.yyVal = NewMemberFromReferenceExpression(p.yyVals[-2+yyTop].(Expression), p.yyVals[0+yyTop].(string))
-		case 13:
-			p.yyVal = NewMemberFromPointerExpression(p.yyVals[-2+yyTop].(Expression), p.yyVals[0+yyTop].(string))
-		case 14:
-			p.yyVal = NewUnaryExpression(UnopPostIncrement, p.yyVals[-1+yyTop].(Expression))
-		case 15:
-			p.yyVal = NewUnaryExpression(UnopPostDecrement, p.yyVals[-1+yyTop].(Expression))
-		case 16:
-			panic(NewNotSupportedException("Syntax: '(' type_name ')' '{' initializer_list '}'"))
-		case 17:
-			panic(NewNotSupportedException("Syntax: '(' type_name ')' '{' initializer_list ',' '}'"))
-		case 18:
-			p.yyVal = []Expression{p.yyVals[0+yyTop].(Expression)}
-		case 19:
-			p.yyVal = append(p.yyVals[-2+yyTop].([]Expression), p.yyVals[0+yyTop].(Expression))
-		case 21:
-			p.yyVal = NewUnaryExpression(UnopPreIncrement, p.yyVals[0+yyTop].(Expression))
-		case 22:
-			p.yyVal = NewUnaryExpression(UnopPreDecrement, p.yyVals[0+yyTop].(Expression))
-		case 23:
-			p.yyVal = NewAddressOfExpression(p.yyVals[0+yyTop].(Expression))
-		case 24:
-			p.yyVal = NewDereferenceExpression(p.yyVals[0+yyTop].(Expression))
-		case 25:
-			p.yyVal = NewUnaryExpression(p.yyVals[-1+yyTop].(Unop), p.yyVals[0+yyTop].(Expression))
-		case 26:
-			p.yyVal = NewSizeOfExpression(p.yyVals[0+yyTop].(Expression))
-		case 27:
-			p.yyVal = NewSizeOfTypeExpression(p.yyVals[-1+yyTop].(*TypeName))
-		case 28:
-			p.yyVal = UnopNone
-		case 29:
-			p.yyVal = UnopNegate
-		case 30:
-			p.yyVal = UnopBinaryComplement
-		case 31:
-			p.yyVal = UnopNot
-		case 33:
-			p.yyVal = NewCastExpression(p.yyVals[-2+yyTop].(*TypeName), p.yyVals[0+yyTop].(Expression))
-		case 35:
-			p.yyVal = NewBinaryExpression(p.yyVals[-2+yyTop].(Expression), BinopMultiply, p.yyVals[0+yyTop].(Expression))
-		case 36:
-			p.yyVal = NewBinaryExpression(p.yyVals[-2+yyTop].(Expression), BinopDivide, p.yyVals[0+yyTop].(Expression))
-		case 37:
-			p.yyVal = NewBinaryExpression(p.yyVals[-2+yyTop].(Expression), BinopMod, p.yyVals[0+yyTop].(Expression))
-		case 39:
-			p.yyVal = NewBinaryExpression(p.yyVals[-2+yyTop].(Expression), BinopAdd, p.yyVals[0+yyTop].(Expression))
-		case 40:
-			p.yyVal = NewBinaryExpression(p.yyVals[-2+yyTop].(Expression), BinopSubtract, p.yyVals[0+yyTop].(Expression))
-		case 42:
-			p.yyVal = NewBinaryExpression(p.yyVals[-2+yyTop].(Expression), BinopShiftLeft, p.yyVals[0+yyTop].(Expression))
-		case 43:
-			p.yyVal = NewBinaryExpression(p.yyVals[-2+yyTop].(Expression), BinopShiftRight, p.yyVals[0+yyTop].(Expression))
-		case 45:
-			p.yyVal = NewRelationalExpression(p.yyVals[-2+yyTop].(Expression), RelationalOpLessThan, p.yyVals[0+yyTop].(Expression))
-		case 46:
-			p.yyVal = NewRelationalExpression(p.yyVals[-2+yyTop].(Expression), RelationalOpGreaterThan, p.yyVals[0+yyTop].(Expression))
-		case 47:
-			p.yyVal = NewRelationalExpression(p.yyVals[-2+yyTop].(Expression), RelationalOpLessThanOrEqual, p.yyVals[0+yyTop].(Expression))
-		case 48:
-			p.yyVal = NewRelationalExpression(p.yyVals[-2+yyTop].(Expression), RelationalOpGreaterThanOrEqual, p.yyVals[0+yyTop].(Expression))
-		case 50:
-			p.yyVal = NewRelationalExpression(p.yyVals[-2+yyTop].(Expression), RelationalOpEquals, p.yyVals[0+yyTop].(Expression))
-		case 51:
-			p.yyVal = NewRelationalExpression(p.yyVals[-2+yyTop].(Expression), RelationalOpNotEquals, p.yyVals[0+yyTop].(Expression))
-		case 53:
-			p.yyVal = NewBinaryExpression(p.yyVals[-2+yyTop].(Expression), BinopBinaryAnd, p.yyVals[0+yyTop].(Expression))
-		case 55:
-			p.yyVal = NewBinaryExpression(p.yyVals[-2+yyTop].(Expression), BinopBinaryXor, p.yyVals[0+yyTop].(Expression))
-		case 57:
-			p.yyVal = NewBinaryExpression(p.yyVals[-2+yyTop].(Expression), BinopBinaryOr, p.yyVals[0+yyTop].(Expression))
-		case 59:
-			p.yyVal = NewLogicExpression(p.yyVals[-2+yyTop].(Expression), LogicOpAnd, p.yyVals[0+yyTop].(Expression))
-		case 61:
-			p.yyVal = NewLogicExpression(p.yyVals[-2+yyTop].(Expression), LogicOpOr, p.yyVals[0+yyTop].(Expression))
-		case 63:
-			p.yyVal = NewConditionalExpression(p.yyVals[-4+yyTop].(Expression), p.yyVals[-2+yyTop].(Expression), p.yyVals[0+yyTop].(Expression))
-		case 65:
-			if r, ok := p.yyVals[-1+yyTop].(RelationalOp); ok && r == RelationalOpEquals {
-				p.yyVal = NewAssignExpression(p.yyVals[-2+yyTop].(Expression), p.yyVals[0+yyTop].(Expression))
-			} else if b, ok := p.yyVals[-1+yyTop].(Binop); ok {
-				left := p.yyVals[-2+yyTop].(Expression)
-				p.yyVal = NewAssignExpression(left, NewBinaryExpression(left, b, p.yyVals[0+yyTop].(Expression)))
-			} else if l, ok := p.yyVals[-1+yyTop].(LogicOp); ok {
-				left := p.yyVals[-2+yyTop].(Expression)
-				p.yyVal = NewAssignExpression(left, NewLogicExpression(left, l, p.yyVals[0+yyTop].(Expression)))
-			} else {
-				panic(NewNotSupportedException(fmt.Sprintf("'%v' not supported", p.yyVals[-1+yyTop])))
+			case 1:
+				t := p.lexer.CurrentToken()
+				p.yyVal = NewVariableExpression(p.yyVals[0+yyTop].(string), t.Location, t.EndLocation)
+			case 2, 3:
+				p.yyVal = NewConstantExpression(p.yyVals[0+yyTop])
+			case 4:
+				p.yyVal = ConstantExpressionTrue
+			case 5:
+				p.yyVal = ConstantExpressionFalse
+			case 6, 233:
+				p.yyVal = p.yyVals[-1+yyTop]
+			case 7:
+				p.yyVal = NewScopeResolutionExpression(p.yyVals[-2+yyTop].(string), p.yyVals[0+yyTop].(string))
+			case 8, 20, 32, 34, 62, 79, 148, 202, 207, 269:
+				p.yyVal = p.yyVals[0+yyTop]
+			case 9:
+				p.yyVal = NewArrayElementExpression(p.yyVals[-3+yyTop].(Expression), p.yyVals[-1+yyTop].(Expression))
+			case 10:
+				p.yyVal = NewFuncallExpression(p.yyVals[-2+yyTop].(Expression))
+			case 11:
+				p.yyVal = NewFuncallExpressionWithArgs(p.yyVals[-3+yyTop].(Expression), p.yyVals[-1+yyTop].([]Expression))
+			case 12:
+				p.yyVal = NewMemberFromReferenceExpression(p.yyVals[-2+yyTop].(Expression), p.yyVals[0+yyTop].(string))
+			case 13:
+				p.yyVal = NewMemberFromPointerExpression(p.yyVals[-2+yyTop].(Expression), p.yyVals[0+yyTop].(string))
+			case 14:
+				p.yyVal = NewUnaryExpression(UnopPostIncrement, p.yyVals[-1+yyTop].(Expression))
+			case 15:
+				p.yyVal = NewUnaryExpression(UnopPostDecrement, p.yyVals[-1+yyTop].(Expression))
+			case 16:
+				panic(NewNotSupportedException("Syntax: '(' type_name ')' '{' initializer_list '}'"))
+			case 17:
+				panic(NewNotSupportedException("Syntax: '(' type_name ')' '{' initializer_list ',' '}'"))
+			case 18:
+				p.yyVal = []Expression{p.yyVals[0+yyTop].(Expression)}
+			case 19:
+				p.yyVal = append(p.yyVals[-2+yyTop].([]Expression), p.yyVals[0+yyTop].(Expression))
+			case 21:
+				p.yyVal = NewUnaryExpression(UnopPreIncrement, p.yyVals[0+yyTop].(Expression))
+			case 22:
+				p.yyVal = NewUnaryExpression(UnopPreDecrement, p.yyVals[0+yyTop].(Expression))
+			case 23:
+				p.yyVal = NewAddressOfExpression(p.yyVals[0+yyTop].(Expression))
+			case 24:
+				p.yyVal = NewDereferenceExpression(p.yyVals[0+yyTop].(Expression))
+			case 25:
+				p.yyVal = NewUnaryExpression(p.yyVals[-1+yyTop].(Unop), p.yyVals[0+yyTop].(Expression))
+			case 26:
+				p.yyVal = NewSizeOfExpression(p.yyVals[0+yyTop].(Expression))
+			case 27:
+				p.yyVal = NewSizeOfTypeExpression(p.yyVals[-1+yyTop].(*TypeName))
+			case 28:
+				p.yyVal = UnopNone
+			case 29:
+				p.yyVal = UnopNegate
+			case 30:
+				p.yyVal = UnopBinaryComplement
+			case 31:
+				p.yyVal = UnopNot
+			case 33:
+				p.yyVal = NewCastExpression(p.yyVals[-2+yyTop].(*TypeName), p.yyVals[0+yyTop].(Expression))
+			case 35:
+				p.yyVal = NewBinaryExpression(p.yyVals[-2+yyTop].(Expression), BinopMultiply, p.yyVals[0+yyTop].(Expression))
+			case 36:
+				p.yyVal = NewBinaryExpression(p.yyVals[-2+yyTop].(Expression), BinopDivide, p.yyVals[0+yyTop].(Expression))
+			case 37:
+				p.yyVal = NewBinaryExpression(p.yyVals[-2+yyTop].(Expression), BinopMod, p.yyVals[0+yyTop].(Expression))
+			case 39:
+				p.yyVal = NewBinaryExpression(p.yyVals[-2+yyTop].(Expression), BinopAdd, p.yyVals[0+yyTop].(Expression))
+			case 40:
+				p.yyVal = NewBinaryExpression(p.yyVals[-2+yyTop].(Expression), BinopSubtract, p.yyVals[0+yyTop].(Expression))
+			case 42:
+				p.yyVal = NewBinaryExpression(p.yyVals[-2+yyTop].(Expression), BinopShiftLeft, p.yyVals[0+yyTop].(Expression))
+			case 43:
+				p.yyVal = NewBinaryExpression(p.yyVals[-2+yyTop].(Expression), BinopShiftRight, p.yyVals[0+yyTop].(Expression))
+			case 45:
+				p.yyVal = NewRelationalExpression(p.yyVals[-2+yyTop].(Expression), RelationalOpLessThan, p.yyVals[0+yyTop].(Expression))
+			case 46:
+				p.yyVal = NewRelationalExpression(p.yyVals[-2+yyTop].(Expression), RelationalOpGreaterThan, p.yyVals[0+yyTop].(Expression))
+			case 47:
+				p.yyVal = NewRelationalExpression(p.yyVals[-2+yyTop].(Expression), RelationalOpLessThanOrEqual, p.yyVals[0+yyTop].(Expression))
+			case 48:
+				p.yyVal = NewRelationalExpression(p.yyVals[-2+yyTop].(Expression), RelationalOpGreaterThanOrEqual, p.yyVals[0+yyTop].(Expression))
+			case 50:
+				p.yyVal = NewRelationalExpression(p.yyVals[-2+yyTop].(Expression), RelationalOpEquals, p.yyVals[0+yyTop].(Expression))
+			case 51:
+				p.yyVal = NewRelationalExpression(p.yyVals[-2+yyTop].(Expression), RelationalOpNotEquals, p.yyVals[0+yyTop].(Expression))
+			case 53:
+				p.yyVal = NewBinaryExpression(p.yyVals[-2+yyTop].(Expression), BinopBinaryAnd, p.yyVals[0+yyTop].(Expression))
+			case 55:
+				p.yyVal = NewBinaryExpression(p.yyVals[-2+yyTop].(Expression), BinopBinaryXor, p.yyVals[0+yyTop].(Expression))
+			case 57:
+				p.yyVal = NewBinaryExpression(p.yyVals[-2+yyTop].(Expression), BinopBinaryOr, p.yyVals[0+yyTop].(Expression))
+			case 59:
+				p.yyVal = NewLogicExpression(p.yyVals[-2+yyTop].(Expression), LogicOpAnd, p.yyVals[0+yyTop].(Expression))
+			case 61:
+				p.yyVal = NewLogicExpression(p.yyVals[-2+yyTop].(Expression), LogicOpOr, p.yyVals[0+yyTop].(Expression))
+			case 63:
+				p.yyVal = NewConditionalExpression(p.yyVals[-4+yyTop].(Expression), p.yyVals[-2+yyTop].(Expression), p.yyVals[0+yyTop].(Expression))
+			case 65:
+				if r, ok := p.yyVals[-1+yyTop].(RelationalOp); ok && r == RelationalOpEquals {
+					p.yyVal = NewAssignExpression(p.yyVals[-2+yyTop].(Expression), p.yyVals[0+yyTop].(Expression))
+				} else if b, ok := p.yyVals[-1+yyTop].(Binop); ok {
+					left := p.yyVals[-2+yyTop].(Expression)
+					p.yyVal = NewAssignExpression(left, NewBinaryExpression(left, b, p.yyVals[0+yyTop].(Expression)))
+				} else if l, ok := p.yyVals[-1+yyTop].(LogicOp); ok {
+					left := p.yyVals[-2+yyTop].(Expression)
+					p.yyVal = NewAssignExpression(left, NewLogicExpression(left, l, p.yyVals[0+yyTop].(Expression)))
+				} else {
+					panic(NewNotSupportedException(fmt.Sprintf("'%v' not supported", p.yyVals[-1+yyTop])))
+				}
+			case 66:
+				p.yyVal = RelationalOpEquals
+			case 67:
+				p.yyVal = BinopMultiply
+			case 68:
+				p.yyVal = BinopDivide
+			case 69:
+				p.yyVal = BinopMod
+			case 70:
+				p.yyVal = BinopAdd
+			case 71:
+				p.yyVal = BinopSubtract
+			case 72:
+				p.yyVal = BinopShiftLeft
+			case 73:
+				p.yyVal = BinopShiftRight
+			case 74:
+				p.yyVal = BinopBinaryAnd
+			case 75:
+				p.yyVal = BinopBinaryXor
+			case 76:
+				p.yyVal = BinopBinaryOr
+			case 77:
+				p.yyVal = LogicOpAnd
+			case 78:
+				p.yyVal = LogicOpOr
+			case 80:
+				p.yyVal = NewSequenceExpression(p.yyVals[-2+yyTop].(Expression), p.yyVals[0+yyTop].(Expression))
+			case 82:
+				p.yyVal = NewMultiDeclaratorStatement(p.yyVals[-1+yyTop].(*DeclarationSpecifiers), nil)
+			case 83:
+				p.yyVal = NewMultiDeclaratorStatement(p.yyVals[-2+yyTop].(*DeclarationSpecifiers), p.yyVals[-1+yyTop].([]*InitDeclarator))
+			case 84:
+				ds := NewDeclarationSpecifiers()
+				ds.StorageClassSpecifier = p.yyVals[0+yyTop].(StorageClassSpecifier)
+				p.yyVal = ds
+			case 85:
+				ds := p.yyVals[0+yyTop].(*DeclarationSpecifiers)
+				ds.StorageClassSpecifier |= p.yyVals[-1+yyTop].(StorageClassSpecifier)
+				p.yyVal = ds
+			case 86:
+				ds := NewDeclarationSpecifiers()
+				ds.TypeSpecifiers = append(ds.TypeSpecifiers, p.yyVals[0+yyTop].(*TypeSpecifier))
+				p.yyVal = ds
+			case 87:
+				ds := p.yyVals[0+yyTop].(*DeclarationSpecifiers)
+				ds.TypeSpecifiers = append(ds.TypeSpecifiers, p.yyVals[-1+yyTop].(*TypeSpecifier))
+				p.yyVal = ds
+			case 88:
+				ds := NewDeclarationSpecifiers()
+				ds.TypeQualifiers = p.yyVals[0+yyTop].(TypeQualifiers)
+				p.yyVal = ds
+			case 89:
+				ds := p.yyVals[0+yyTop].(*DeclarationSpecifiers)
+				ds.TypeQualifiers = p.yyVals[-1+yyTop].(TypeQualifiers)
+				p.yyVal = ds
+			case 90:
+				ds := NewDeclarationSpecifiers()
+				ds.FunctionSpecifier = p.yyVals[0+yyTop].(FunctionSpecifier)
+				p.yyVal = ds
+			case 91:
+				ds := p.yyVals[0+yyTop].(*DeclarationSpecifiers)
+				ds.FunctionSpecifier = p.yyVals[-1+yyTop].(FunctionSpecifier)
+				p.yyVal = ds
+			case 92:
+				p.yyVal = []*InitDeclarator{p.yyVals[0+yyTop].(*InitDeclarator)}
+			case 93:
+				p.yyVal = append(p.yyVals[-2+yyTop].([]*InitDeclarator), p.yyVals[0+yyTop].(*InitDeclarator))
+			case 94:
+				p.yyVal = NewInitDeclarator(p.yyVals[0+yyTop].(Declarator), nil)
+			case 95:
+				p.yyVal = NewInitDeclarator(p.yyVals[-2+yyTop].(Declarator), p.yyVals[0+yyTop].(Initializer))
+			case 96:
+				p.yyVal = StorageClassSpecifierTypedef
+			case 97:
+				p.yyVal = StorageClassSpecifierExtern
+			case 98:
+				p.yyVal = StorageClassSpecifierStatic
+			case 99:
+				p.yyVal = StorageClassSpecifierAuto
+			case 100:
+				p.yyVal = StorageClassSpecifierRegister
+			case 101:
+				p.yyVal = NewTypeSpecifier(TypeSpecifierKindBuiltin, "void", nil)
+			case 102:
+				p.yyVal = NewTypeSpecifier(TypeSpecifierKindBuiltin, "char", nil)
+			case 103:
+				p.yyVal = NewTypeSpecifier(TypeSpecifierKindBuiltin, "short", nil)
+			case 104:
+				p.yyVal = NewTypeSpecifier(TypeSpecifierKindBuiltin, "int", nil)
+			case 105:
+				p.yyVal = NewTypeSpecifier(TypeSpecifierKindBuiltin, "long", nil)
+			case 106:
+				p.yyVal = NewTypeSpecifier(TypeSpecifierKindBuiltin, "float", nil)
+			case 107:
+				p.yyVal = NewTypeSpecifier(TypeSpecifierKindBuiltin, "double", nil)
+			case 108:
+				p.yyVal = NewTypeSpecifier(TypeSpecifierKindBuiltin, "signed", nil)
+			case 109:
+				p.yyVal = NewTypeSpecifier(TypeSpecifierKindBuiltin, "unsigned", nil)
+			case 110:
+				p.yyVal = NewTypeSpecifier(TypeSpecifierKindBuiltin, "bool", nil)
+			case 111:
+				p.yyVal = NewTypeSpecifier(TypeSpecifierKindBuiltin, "complex", nil)
+			case 112:
+				p.yyVal = NewTypeSpecifier(TypeSpecifierKindBuiltin, "imaginary", nil)
+			case 115:
+				p.yyVal = NewTypeSpecifier(TypeSpecifierKindTypename, p.yyVals[0+yyTop].(string), nil)
+			case 118:
+				p.yyVal = NewTypeSpecifier(p.yyVals[-2+yyTop].(TypeSpecifierKind), p.yyVals[-1+yyTop].(string), p.yyVals[0+yyTop].(*Block))
+			case 119:
+				ts := NewTypeSpecifier(p.yyVals[-4+yyTop].(TypeSpecifierKind), p.yyVals[-3+yyTop].(string), p.yyVals[0+yyTop].(*Block))
+				ts.BaseSpecifiers = p.yyVals[-1+yyTop].([]*BaseSpecifier)
+				p.yyVal = ts
+			case 120:
+				p.yyVal = NewTypeSpecifier(p.yyVals[-1+yyTop].(TypeSpecifierKind), "", p.yyVals[0+yyTop].(*Block))
+			case 121:
+				p.yyVal = NewTypeSpecifier(p.yyVals[-1+yyTop].(TypeSpecifierKind), p.yyVals[0+yyTop].(string), nil)
+			case 122:
+				p.yyVal = []*BaseSpecifier{p.yyVals[0+yyTop].(*BaseSpecifier)}
+			case 123:
+				list := p.yyVals[-2+yyTop].([]*BaseSpecifier)
+				p.yyVal = append(list, p.yyVals[0+yyTop].(*BaseSpecifier))
+			case 124:
+				p.yyVal = NewBaseSpecifier(p.yyVals[0+yyTop].(string), nil)
+			case 125:
+				v := DeclarationsVisibilityPublic
+				p.yyVal = NewBaseSpecifier(p.yyVals[0+yyTop].(string), &v)
+			case 126:
+				v := DeclarationsVisibilityPrivate
+				p.yyVal = NewBaseSpecifier(p.yyVals[0+yyTop].(string), &v)
+			case 127:
+				v := DeclarationsVisibilityProtected
+				p.yyVal = NewBaseSpecifier(p.yyVals[0+yyTop].(string), &v)
+			case 128:
+				p.yyVal = TypeSpecifierKindStruct
+			case 129:
+				p.yyVal = TypeSpecifierKindClass
+			case 130:
+				p.yyVal = TypeSpecifierKindUnion
+			case 131:
+				ds := p.yyVals[0+yyTop].(*DeclarationSpecifiers)
+				ds.TypeSpecifiers = append(ds.TypeSpecifiers, p.yyVals[-1+yyTop].(*TypeSpecifier))
+				p.yyVal = ds
+			case 132:
+				ds := NewDeclarationSpecifiers()
+				ds.TypeSpecifiers = append(ds.TypeSpecifiers, p.yyVals[0+yyTop].(*TypeSpecifier))
+				p.yyVal = ds
+			case 133:
+				ds := p.yyVals[0+yyTop].(*DeclarationSpecifiers)
+				ds.TypeQualifiers |= p.yyVals[-1+yyTop].(TypeQualifiers)
+				p.yyVal = ds
+			case 134:
+				ds := NewDeclarationSpecifiers()
+				ds.TypeQualifiers = p.yyVals[0+yyTop].(TypeQualifiers)
+				p.yyVal = ds
+			case 135:
+				p.yyVal = NewTypeSpecifier(TypeSpecifierKindEnum, "", p.yyVals[-1+yyTop].(*Block))
+			case 136:
+				p.yyVal = NewTypeSpecifier(TypeSpecifierKindEnum, p.yyVals[-3+yyTop].(string), p.yyVals[-1+yyTop].(*Block))
+			case 137:
+				p.yyVal = NewTypeSpecifier(TypeSpecifierKindEnum, "", p.yyVals[-2+yyTop].(*Block))
+			case 138:
+				p.yyVal = NewTypeSpecifier(TypeSpecifierKindEnum, p.yyVals[-4+yyTop].(string), p.yyVals[-2+yyTop].(*Block))
+			case 139:
+				p.yyVal = NewTypeSpecifier(TypeSpecifierKindEnum, p.yyVals[0+yyTop].(string), nil)
+			case 140:
+				l := NewBlock(VariableScopeGlobal)
+				l.AddStatement(p.yyVals[0+yyTop].(Statement))
+				p.yyVal = l
+			case 141:
+				l := p.yyVals[-2+yyTop].(*Block)
+				l.AddStatement(p.yyVals[0+yyTop].(Statement))
+				p.yyVal = l
+			case 142:
+				p.yyVal = NewEnumeratorStatement(p.yyVals[0+yyTop].(string), nil)
+			case 143:
+				p.yyVal = NewEnumeratorStatement(p.yyVals[-2+yyTop].(string), p.yyVals[0+yyTop].(Expression))
+			case 144:
+				p.yyVal = FunctionSpecifierInline
+			case 145, 220:
+				p.yyVal = NewPointerDeclarator(p.yyVals[-1+yyTop].(*Pointer), p.yyVals[0+yyTop].(Declarator))
+			case 146:
+				p.yyVal = NewReferenceDeclarator(p.yyVals[0+yyTop].(Declarator))
+			case 147:
+				p.yyVal = NewReferenceDeclaratorWithQualifiers(p.yyVals[0+yyTop].(Declarator), p.yyVals[-1+yyTop].(TypeQualifiers))
+			case 149:
+				p.yyVal = "+"
+			case 150:
+				p.yyVal = "-"
+			case 151:
+				p.yyVal = "*"
+			case 152:
+				p.yyVal = "/"
+			case 153:
+				p.yyVal = "%"
+			case 154:
+				p.yyVal = "=="
+			case 155:
+				p.yyVal = "!="
+			case 156:
+				p.yyVal = "<"
+			case 157:
+				p.yyVal = ">"
+			case 158:
+				p.yyVal = "<="
+			case 159:
+				p.yyVal = ">="
+			case 160:
+				p.yyVal = "<<"
+			case 161:
+				p.yyVal = ">>"
+			case 162:
+				p.yyVal = "&"
+			case 163:
+				p.yyVal = "|"
+			case 164:
+				p.yyVal = "^"
+			case 165:
+				p.yyVal = "!"
+			case 166:
+				p.yyVal = "~"
+			case 167:
+				p.yyVal = "&&"
+			case 168:
+				p.yyVal = "||"
+			case 169:
+				p.yyVal = "++"
+			case 170:
+				p.yyVal = "--"
+			case 171:
+				p.yyVal = "="
+			case 172:
+				p.yyVal = "+="
+			case 173:
+				p.yyVal = "-="
+			case 174:
+				p.yyVal = "*="
+			case 175:
+				p.yyVal = "/="
+			case 176:
+				p.yyVal = "%="
+			case 177:
+				p.yyVal = "()"
+			case 178:
+				p.yyVal = "[]"
+			case 179, 309:
+				p.yyVal = NewIdentifierDeclarator(p.yyVals[0+yyTop].(string))
+			case 180:
+				p.yyVal = NewIdentifierDeclarator("~" + p.yyVals[-1+yyTop].(string))
+			case 181:
+				p.yyVal = NewIdentifierDeclarator("operator" + p.yyVals[0+yyTop].(string))
+			case 182, 312:
+				p.yyVal = p.yyVals[-2+yyTop].(*IdentifierDeclarator).Push(p.yyVals[0+yyTop].(string))
+			case 183:
+				p.yyVal = p.yyVals[-3+yyTop].(*IdentifierDeclarator).Push("~" + p.yyVals[-1+yyTop].(string))
+			case 184, 315:
+				p.yyVal = p.yyVals[-3+yyTop].(*IdentifierDeclarator).Push("operator" + p.yyVals[0+yyTop].(string))
+			case 186, 221:
+				d := p.yyVals[-1+yyTop].(Declarator)
+				if f := p.FixPointerAndArrayPrecedence(d); f != nil {
+					p.yyVal = f
+				} else {
+					if pd, ok := d.(*PointerDeclarator); ok {
+						pd.StrongBinding = true
+					}
+					p.yyVal = d
+				}
+			case 187:
+				p.yyVal = p.MakeArrayDeclarator(p.yyVals[-4+yyTop].(Declarator), p.yyVals[-2+yyTop].(TypeQualifiers), p.yyVals[-1+yyTop].(Expression), false)
+			case 188, 193, 227:
+				p.yyVal = p.MakeArrayDeclarator(p.yyVals[-3+yyTop].(Declarator), 0, nil, false)
+			case 189, 225:
+				p.yyVal = p.MakeArrayDeclarator(p.yyVals[-3+yyTop].(Declarator), 0, p.yyVals[-1+yyTop].(Expression), false)
+			case 190:
+				p.yyVal = p.MakeArrayDeclarator(p.yyVals[-5+yyTop].(Declarator), p.yyVals[-2+yyTop].(TypeQualifiers), p.yyVals[-1+yyTop].(Expression), true)
+			case 191:
+				p.yyVal = p.MakeArrayDeclarator(p.yyVals[-5+yyTop].(Declarator), p.yyVals[-3+yyTop].(TypeQualifiers), p.yyVals[-1+yyTop].(Expression), true)
+			case 192:
+				p.yyVal = p.MakeArrayDeclarator(p.yyVals[-4+yyTop].(Declarator), p.yyVals[-2+yyTop].(TypeQualifiers), nil, false)
+			case 194, 224:
+				p.yyVal = p.MakeArrayDeclarator(p.yyVals[-2+yyTop].(Declarator), 0, nil, false)
+			case 195, 231, 274:
+				p.yyVal = NewFunctionDeclarator(p.yyVals[-3+yyTop].(Declarator), p.yyVals[-1+yyTop].([]*ParameterDeclaration))
+			case 196:
+				d := NewFunctionDeclarator(p.yyVals[-3+yyTop].(Declarator), nil)
+				for _, n := range p.yyVals[-1+yyTop].([]Expression) {
+					d.Parameters = append(d.Parameters, NewParameterDeclarationCtor(n))
+				}
+				p.yyVal = d
+			case 197, 230, 275:
+				p.yyVal = NewFunctionDeclarator(p.yyVals[-2+yyTop].(Declarator), []*ParameterDeclaration{})
+			case 276:
+				p.yyVal = NewFunctionDeclarator(NewIdentifierDeclarator(p.yyVals[-3+yyTop].(string)), p.yyVals[-1+yyTop].([]*ParameterDeclaration))
+			case 277:
+				p.yyVal = NewFunctionDeclarator(NewIdentifierDeclarator(p.yyVals[-2+yyTop].(string)), []*ParameterDeclaration{})
+			case 278:
+				p.yyVal = NewFunctionDeclarator(NewIdentifierDeclarator("~"+p.yyVals[-2+yyTop].(string)), []*ParameterDeclaration{})
+			case 198:
+				p.yyVal = NewPointer(TypeQualifiers(0), nil)
+			case 199:
+				p.yyVal = NewPointer(p.yyVals[0+yyTop].(TypeQualifiers), nil)
+			case 200:
+				p.yyVal = NewPointer(TypeQualifiers(0), p.yyVals[0+yyTop].(*Pointer))
+			case 201:
+				p.yyVal = NewPointer(p.yyVals[-1+yyTop].(TypeQualifiers), p.yyVals[0+yyTop].(*Pointer))
+			case 203:
+				p.yyVal = p.yyVals[-1+yyTop].(TypeQualifiers) | p.yyVals[0+yyTop].(TypeQualifiers)
+			case 204:
+				p.yyVal = TypeQualifiersConst
+			case 205:
+				p.yyVal = TypeQualifiersRestrict
+			case 206:
+				p.yyVal = TypeQualifiersVolatile
+			case 208:
+				vp := NewVarParameter()
+				p.yyVal = append(p.yyVals[-2+yyTop].([]*ParameterDeclaration), &vp.ParameterDeclaration)
+			case 209:
+				p.yyVal = []*ParameterDeclaration{p.yyVals[0+yyTop].(*ParameterDeclaration)}
+			case 210:
+				p.yyVal = append(p.yyVals[-2+yyTop].([]*ParameterDeclaration), p.yyVals[0+yyTop].(*ParameterDeclaration))
+			case 211, 213:
+				p.yyVal = NewParameterDeclarationFull(p.yyVals[-1+yyTop].(*DeclarationSpecifiers), p.yyVals[0+yyTop].(Declarator))
+			case 212:
+				p.yyVal = NewParameterDeclarationDefault(p.yyVals[-3+yyTop].(*DeclarationSpecifiers), p.yyVals[-2+yyTop].(Declarator), p.yyVals[0+yyTop].(Expression))
+			case 214:
+				p.yyVal = NewParameterDeclarationSpecs(p.yyVals[0+yyTop].(*DeclarationSpecifiers))
+			case 215:
+				p.yyVal = NewTypeName(p.yyVals[0+yyTop].(*DeclarationSpecifiers), nil)
+			case 216:
+				p.yyVal = NewTypeName(p.yyVals[-1+yyTop].(*DeclarationSpecifiers), p.yyVals[0+yyTop].(Declarator))
+			case 217:
+				p.yyVal = NewPointerDeclarator(p.yyVals[0+yyTop].(*Pointer), nil)
+			case 218:
+				p.yyVal = NewReferenceDeclarator(nil)
+			case 222, 226:
+				p.yyVal = p.MakeArrayDeclarator(nil, 0, nil, false)
+			case 223:
+				p.yyVal = p.MakeArrayDeclarator(nil, 0, p.yyVals[-1+yyTop].(Expression), false)
+			case 228:
+				p.yyVal = NewFunctionDeclarator(nil, []*ParameterDeclaration{})
+			case 229:
+				p.yyVal = NewFunctionDeclarator(nil, p.yyVals[-1+yyTop].([]*ParameterDeclaration))
+			case 232:
+				p.yyVal = NewExpressionInitializer(p.yyVals[0+yyTop].(Expression))
+			case 234:
+				p.yyVal = p.yyVals[-2+yyTop]
+			case 235:
+				l := NewStructuredInitializer()
+				l.Add(p.yyVals[0+yyTop].(Initializer))
+				p.yyVal = l
+			case 236:
+				l := NewStructuredInitializer()
+				i := p.yyVals[0+yyTop].(Initializer)
+				i.SetDesignation(p.yyVals[-1+yyTop].(*InitializerDesignation))
+				l.Add(i)
+				p.yyVal = l
+			case 237:
+				l := p.yyVals[-2+yyTop].(*StructuredInitializer)
+				l.Add(p.yyVals[0+yyTop].(Initializer))
+				p.yyVal = l
+			case 238:
+				l := p.yyVals[-3+yyTop].(*StructuredInitializer)
+				i := p.yyVals[0+yyTop].(Initializer)
+				i.SetDesignation(p.yyVals[-1+yyTop].(*InitializerDesignation))
+				l.Add(i)
+				p.yyVal = l
+			case 239:
+				p.yyVal = NewInitializerDesignation(p.yyVals[-1+yyTop].([]*InitializerDesignator))
+			case 250:
+				p.yyVal = NewLabeledStatement(p.yyVals[-2+yyTop].(string), p.yyVals[0+yyTop].(Statement), p.GetLocation(p.yyVals[-2+yyTop]))
+			case 251, 257:
+				p.yyVal = NewBlock(VariableScopeLocal)
+			case 252, 258:
+				p.yyVal = NewBlockWithStatements(VariableScopeLocal, p.yyVals[-1+yyTop].([]Statement))
+			case 253, 259:
+				p.yyVal = []Statement{StatementOrEmpty(p.yyVals[0+yyTop])}
+			case 254, 260:
+				p.yyVal = append(p.yyVals[-1+yyTop].([]Statement), StatementOrEmpty(p.yyVals[0+yyTop]))
+			case 265:
+				fdecl := p.yyVals[-1+yyTop].(*FunctionDeclarator)
+				p.yyVal = NewFunctionDefinition(NewDeclarationSpecifiers(), fdecl, nil, p.yyVals[0+yyTop].(*Block))
+			case 266:
+				p.yyVal = &VirtualDeclarationStatement{InnerDeclaration: p.yyVals[0+yyTop].(Statement), IsVirtual: true}
+			case 267:
+				inner := NewMultiDeclaratorStatement(p.yyVals[-3+yyTop].(*DeclarationSpecifiers), p.yyVals[-2+yyTop].([]*InitDeclarator))
+				p.yyVal = &VirtualDeclarationStatement{InnerDeclaration: inner, IsOverride: true}
+			case 268:
+				inner := NewMultiDeclaratorStatement(p.yyVals[-3+yyTop].(*DeclarationSpecifiers), p.yyVals[-2+yyTop].([]*InitDeclarator))
+				p.yyVal = &VirtualDeclarationStatement{InnerDeclaration: inner, IsVirtual: true, IsOverride: true}
+			case 270:
+				decls := []*InitDeclarator{NewInitDeclarator(p.yyVals[-3+yyTop].(Declarator), nil)}
+				inner := NewMultiDeclaratorStatement(p.yyVals[-4+yyTop].(*DeclarationSpecifiers), decls)
+				p.yyVal = &VirtualDeclarationStatement{InnerDeclaration: inner, IsVirtual: true, IsPureVirtual: true}
+			case 271:
+				p.yyVal = NewVisibilityStatement(DeclarationsVisibilityPublic)
+			case 272:
+				p.yyVal = NewVisibilityStatement(DeclarationsVisibilityPrivate)
+			case 273:
+				p.yyVal = NewVisibilityStatement(DeclarationsVisibilityProtected)
+			case 279:
+				fdecl := p.yyVals[-1+yyTop].(*FunctionDeclarator)
+				ds := NewDeclarationSpecifiers()
+				decls := []*InitDeclarator{NewInitDeclarator(fdecl, nil)}
+				p.yyVal = NewMultiDeclaratorStatement(ds, decls)
+			case 280:
+				p.yyVal = nil
+			case 281:
+				p.yyVal = NewExpressionStatement(p.yyVals[-1+yyTop].(Expression))
+			case 282:
+				p.yyVal = NewIfStatement(p.yyVals[-2+yyTop].(Expression), p.yyVals[0+yyTop].(Statement), p.GetLocation(p.yyVals[-4+yyTop]))
+			case 283:
+				p.yyVal = NewIfElseStatement(p.yyVals[-4+yyTop].(Expression), p.yyVals[-2+yyTop].(Statement), p.yyVals[0+yyTop].(Statement), p.GetLocation(p.yyVals[-6+yyTop]))
+			case 284:
+				p.yyVal = NewSwitchStatement(p.yyVals[-4+yyTop].(Expression), p.yyVals[-1+yyTop].([]*SwitchCase), p.GetLocation(p.yyVals[-6+yyTop]))
+			case 285:
+				p.yyVal = NewSwitchStatement(p.yyVals[-3+yyTop].(Expression), []*SwitchCase{}, p.GetLocation(p.yyVals[-5+yyTop]))
+			case 286:
+				p.yyVal = []*SwitchCase{p.yyVals[0+yyTop].(*SwitchCase)}
+			case 287:
+				p.yyVal = append(p.yyVals[-1+yyTop].([]*SwitchCase), p.yyVals[0+yyTop].(*SwitchCase))
+			case 288:
+				p.yyVal = NewSwitchCase(p.yyVals[-2+yyTop].(Expression), p.yyVals[0+yyTop].([]Statement))
+			case 289:
+				p.yyVal = NewSwitchCase(nil, p.yyVals[0+yyTop].([]Statement))
+			case 290:
+				p.yyVal = NewWhileStatement(false, p.yyVals[-2+yyTop].(Expression), ToBlock(p.yyVals[0+yyTop].(Statement)))
+			case 291:
+				p.yyVal = NewWhileStatement(true, p.yyVals[-2+yyTop].(Expression), ToBlock(p.yyVals[-5+yyTop].(Statement)))
+			case 292, 294:
+				var cond Expression
+				if es, ok := p.yyVals[-2+yyTop].(*ExpressionStatement); ok {
+					cond = es.Expression
+				}
+				p.yyVal = NewForStatement(StatementOrEmpty(p.yyVals[-3+yyTop]), cond, ToBlock(p.yyVals[0+yyTop].(Statement)))
+			case 293, 295:
+				var cond Expression
+				if es, ok := p.yyVals[-3+yyTop].(*ExpressionStatement); ok {
+					cond = es.Expression
+				}
+				p.yyVal = NewForFullStatement(StatementOrEmpty(p.yyVals[-4+yyTop]), cond, p.yyVals[-2+yyTop].(Expression), ToBlock(p.yyVals[0+yyTop].(Statement)))
+			case 296:
+				p.yyVal = NewGotoStatement(p.yyVals[-1+yyTop].(string), p.GetLocation(p.yyVals[-2+yyTop]))
+			case 297:
+				p.yyVal = NewContinueStatement()
+			case 298:
+				p.yyVal = NewBreakStatement()
+			case 299:
+				p.yyVal = NewReturnStatement()
+			case 300:
+				p.yyVal = NewReturnValueStatement(p.yyVals[-1+yyTop].(Expression))
+			case 301, 302:
+				p.AddDeclaration(p.yyVals[0+yyTop])
+				p.yyVal = p._tu
+			case 307:
+				p.yyVal = NewFunctionDefinition(p.yyVals[-3+yyTop].(*DeclarationSpecifiers), p.yyVals[-2+yyTop].(Declarator), p.yyVals[-1+yyTop].([]*Declaration), p.yyVals[0+yyTop].(*Block))
+			case 308:
+				p.yyVal = NewFunctionDefinition(p.yyVals[-2+yyTop].(*DeclarationSpecifiers), p.yyVals[-1+yyTop].(Declarator), nil, p.yyVals[0+yyTop].(*Block))
+			case 310:
+				p.yyVal = NewIdentifierDeclarator(p.yyVals[-2+yyTop].(string)).Push(p.yyVals[0+yyTop].(string))
+			case 311:
+				p.yyVal = NewIdentifierDeclarator(p.yyVals[-3+yyTop].(string)).Push("~" + p.yyVals[0+yyTop].(string))
+			case 313:
+				p.yyVal = p.yyVals[-3+yyTop].(*IdentifierDeclarator).Push("~" + p.yyVals[0+yyTop].(string))
+			case 314:
+				p.yyVal = NewIdentifierDeclarator(p.yyVals[-3+yyTop].(string)).Push("operator" + p.yyVals[0+yyTop].(string))
+			case 316:
+				d := NewFunctionDeclarator(p.yyVals[-3+yyTop].(Declarator), []*ParameterDeclaration{})
+				p.yyVal = NewFunctionDefinition(NewDeclarationSpecifiers(), d, nil, p.yyVals[0+yyTop].(*Block))
+			case 317:
+				d := NewFunctionDeclarator(p.yyVals[-4+yyTop].(Declarator), p.yyVals[-2+yyTop].([]*ParameterDeclaration))
+				p.yyVal = NewFunctionDefinition(NewDeclarationSpecifiers(), d, nil, p.yyVals[0+yyTop].(*Block))
+			case 318, 319:
+				p.yyVal = []*Declaration{p.yyVals[0+yyTop].(*Declaration)}
+			case 320:
+				p.yyVal = append(p.yyVals[-1+yyTop].([]*Declaration), p.yyVals[0+yyTop].(*Declaration))
 			}
-		case 66:
-			p.yyVal = RelationalOpEquals
-		case 67:
-			p.yyVal = BinopMultiply
-		case 68:
-			p.yyVal = BinopDivide
-		case 69:
-			p.yyVal = BinopMod
-		case 70:
-			p.yyVal = BinopAdd
-		case 71:
-			p.yyVal = BinopSubtract
-		case 72:
-			p.yyVal = BinopShiftLeft
-		case 73:
-			p.yyVal = BinopShiftRight
-		case 74:
-			p.yyVal = BinopBinaryAnd
-		case 75:
-			p.yyVal = BinopBinaryXor
-		case 76:
-			p.yyVal = BinopBinaryOr
-		case 77:
-			p.yyVal = LogicOpAnd
-		case 78:
-			p.yyVal = LogicOpOr
-		case 80:
-			p.yyVal = NewSequenceExpression(p.yyVals[-2+yyTop].(Expression), p.yyVals[0+yyTop].(Expression))
-		case 82:
-			p.yyVal = NewMultiDeclaratorStatement(p.yyVals[-1+yyTop].(*DeclarationSpecifiers), nil)
-		case 83:
-			p.yyVal = NewMultiDeclaratorStatement(p.yyVals[-2+yyTop].(*DeclarationSpecifiers), p.yyVals[-1+yyTop].([]*InitDeclarator))
-		case 84:
-			ds := NewDeclarationSpecifiers()
-			ds.StorageClassSpecifier = p.yyVals[0+yyTop].(StorageClassSpecifier)
-			p.yyVal = ds
-		case 85:
-			ds := p.yyVals[0+yyTop].(*DeclarationSpecifiers)
-			ds.StorageClassSpecifier |= p.yyVals[-1+yyTop].(StorageClassSpecifier)
-			p.yyVal = ds
-		case 86:
-			ds := NewDeclarationSpecifiers()
-			ds.TypeSpecifiers = append(ds.TypeSpecifiers, p.yyVals[0+yyTop].(*TypeSpecifier))
-			p.yyVal = ds
-		case 87:
-			ds := p.yyVals[0+yyTop].(*DeclarationSpecifiers)
-			ds.TypeSpecifiers = append(ds.TypeSpecifiers, p.yyVals[-1+yyTop].(*TypeSpecifier))
-			p.yyVal = ds
-		case 88:
-			ds := NewDeclarationSpecifiers()
-			ds.TypeQualifiers = p.yyVals[0+yyTop].(TypeQualifiers)
-			p.yyVal = ds
-		case 89:
-			ds := p.yyVals[0+yyTop].(*DeclarationSpecifiers)
-			ds.TypeQualifiers = p.yyVals[-1+yyTop].(TypeQualifiers)
-			p.yyVal = ds
-		case 90:
-			ds := NewDeclarationSpecifiers()
-			ds.FunctionSpecifier = p.yyVals[0+yyTop].(FunctionSpecifier)
-			p.yyVal = ds
-		case 91:
-			ds := p.yyVals[0+yyTop].(*DeclarationSpecifiers)
-			ds.FunctionSpecifier = p.yyVals[-1+yyTop].(FunctionSpecifier)
-			p.yyVal = ds
-		case 92:
-			p.yyVal = []*InitDeclarator{p.yyVals[0+yyTop].(*InitDeclarator)}
-		case 93:
-			p.yyVal = append(p.yyVals[-2+yyTop].([]*InitDeclarator), p.yyVals[0+yyTop].(*InitDeclarator))
-		case 94:
-			p.yyVal = NewInitDeclarator(p.yyVals[0+yyTop].(Declarator), nil)
-		case 95:
-			p.yyVal = NewInitDeclarator(p.yyVals[-2+yyTop].(Declarator), p.yyVals[0+yyTop].(Initializer))
-		case 96:
-			p.yyVal = StorageClassSpecifierTypedef
-		case 97:
-			p.yyVal = StorageClassSpecifierExtern
-		case 98:
-			p.yyVal = StorageClassSpecifierStatic
-		case 99:
-			p.yyVal = StorageClassSpecifierAuto
-		case 100:
-			p.yyVal = StorageClassSpecifierRegister
-		case 101:
-			p.yyVal = NewTypeSpecifier(TypeSpecifierKindBuiltin, "void", nil)
-		case 102:
-			p.yyVal = NewTypeSpecifier(TypeSpecifierKindBuiltin, "char", nil)
-		case 103:
-			p.yyVal = NewTypeSpecifier(TypeSpecifierKindBuiltin, "short", nil)
-		case 104:
-			p.yyVal = NewTypeSpecifier(TypeSpecifierKindBuiltin, "int", nil)
-		case 105:
-			p.yyVal = NewTypeSpecifier(TypeSpecifierKindBuiltin, "long", nil)
-		case 106:
-			p.yyVal = NewTypeSpecifier(TypeSpecifierKindBuiltin, "float", nil)
-		case 107:
-			p.yyVal = NewTypeSpecifier(TypeSpecifierKindBuiltin, "double", nil)
-		case 108:
-			p.yyVal = NewTypeSpecifier(TypeSpecifierKindBuiltin, "signed", nil)
-		case 109:
-			p.yyVal = NewTypeSpecifier(TypeSpecifierKindBuiltin, "unsigned", nil)
-		case 110:
-			p.yyVal = NewTypeSpecifier(TypeSpecifierKindBuiltin, "bool", nil)
-		case 111:
-			p.yyVal = NewTypeSpecifier(TypeSpecifierKindBuiltin, "complex", nil)
-		case 112:
-			p.yyVal = NewTypeSpecifier(TypeSpecifierKindBuiltin, "imaginary", nil)
-		case 115:
-			p.yyVal = NewTypeSpecifier(TypeSpecifierKindTypename, p.yyVals[0+yyTop].(string), nil)
-		case 118:
-			p.yyVal = NewTypeSpecifier(p.yyVals[-2+yyTop].(TypeSpecifierKind), p.yyVals[-1+yyTop].(string), p.yyVals[0+yyTop].(*Block))
-		case 119:
-			ts := NewTypeSpecifier(p.yyVals[-4+yyTop].(TypeSpecifierKind), p.yyVals[-3+yyTop].(string), p.yyVals[0+yyTop].(*Block))
-			ts.BaseSpecifiers = p.yyVals[-1+yyTop].([]*BaseSpecifier)
-			p.yyVal = ts
-		case 120:
-			p.yyVal = NewTypeSpecifier(p.yyVals[-1+yyTop].(TypeSpecifierKind), "", p.yyVals[0+yyTop].(*Block))
-		case 121:
-			p.yyVal = NewTypeSpecifier(p.yyVals[-1+yyTop].(TypeSpecifierKind), p.yyVals[0+yyTop].(string), nil)
-		case 122:
-			p.yyVal = []*BaseSpecifier{p.yyVals[0+yyTop].(*BaseSpecifier)}
-		case 123:
-			list := p.yyVals[-2+yyTop].([]*BaseSpecifier)
-			p.yyVal = append(list, p.yyVals[0+yyTop].(*BaseSpecifier))
-		case 124:
-			p.yyVal = NewBaseSpecifier(p.yyVals[0+yyTop].(string), nil)
-		case 125:
-			v := DeclarationsVisibilityPublic
-			p.yyVal = NewBaseSpecifier(p.yyVals[0+yyTop].(string), &v)
-		case 126:
-			v := DeclarationsVisibilityPrivate
-			p.yyVal = NewBaseSpecifier(p.yyVals[0+yyTop].(string), &v)
-		case 127:
-			v := DeclarationsVisibilityProtected
-			p.yyVal = NewBaseSpecifier(p.yyVals[0+yyTop].(string), &v)
-		case 128:
-			p.yyVal = TypeSpecifierKindStruct
-		case 129:
-			p.yyVal = TypeSpecifierKindClass
-		case 130:
-			p.yyVal = TypeSpecifierKindUnion
-		case 131:
-			ds := p.yyVals[0+yyTop].(*DeclarationSpecifiers)
-			ds.TypeSpecifiers = append(ds.TypeSpecifiers, p.yyVals[-1+yyTop].(*TypeSpecifier))
-			p.yyVal = ds
-		case 132:
-			ds := NewDeclarationSpecifiers()
-			ds.TypeSpecifiers = append(ds.TypeSpecifiers, p.yyVals[0+yyTop].(*TypeSpecifier))
-			p.yyVal = ds
-		case 133:
-			ds := p.yyVals[0+yyTop].(*DeclarationSpecifiers)
-			ds.TypeQualifiers |= p.yyVals[-1+yyTop].(TypeQualifiers)
-			p.yyVal = ds
-		case 134:
-			ds := NewDeclarationSpecifiers()
-			ds.TypeQualifiers = p.yyVals[0+yyTop].(TypeQualifiers)
-			p.yyVal = ds
-		case 135:
-			p.yyVal = NewTypeSpecifier(TypeSpecifierKindEnum, "", p.yyVals[-1+yyTop].(*Block))
-		case 136:
-			p.yyVal = NewTypeSpecifier(TypeSpecifierKindEnum, p.yyVals[-3+yyTop].(string), p.yyVals[-1+yyTop].(*Block))
-		case 137:
-			p.yyVal = NewTypeSpecifier(TypeSpecifierKindEnum, "", p.yyVals[-2+yyTop].(*Block))
-		case 138:
-			p.yyVal = NewTypeSpecifier(TypeSpecifierKindEnum, p.yyVals[-4+yyTop].(string), p.yyVals[-2+yyTop].(*Block))
-		case 139:
-			p.yyVal = NewTypeSpecifier(TypeSpecifierKindEnum, p.yyVals[0+yyTop].(string), nil)
-		case 140:
-			l := NewBlock(VariableScopeGlobal)
-			l.AddStatement(p.yyVals[0+yyTop].(Statement))
-			p.yyVal = l
-		case 141:
-			l := p.yyVals[-2+yyTop].(*Block)
-			l.AddStatement(p.yyVals[0+yyTop].(Statement))
-			p.yyVal = l
-		case 142:
-			p.yyVal = NewEnumeratorStatement(p.yyVals[0+yyTop].(string), nil)
-		case 143:
-			p.yyVal = NewEnumeratorStatement(p.yyVals[-2+yyTop].(string), p.yyVals[0+yyTop].(Expression))
-		case 144:
-			p.yyVal = FunctionSpecifierInline
-		case 145, 220:
-			p.yyVal = NewPointerDeclarator(p.yyVals[-1+yyTop].(*Pointer), p.yyVals[0+yyTop].(Declarator))
-		case 146:
-			p.yyVal = NewReferenceDeclarator(p.yyVals[0+yyTop].(Declarator))
-		case 147:
-			p.yyVal = NewReferenceDeclaratorWithQualifiers(p.yyVals[0+yyTop].(Declarator), p.yyVals[-1+yyTop].(TypeQualifiers))
-		case 149:
-			p.yyVal = "+"
-		case 150:
-			p.yyVal = "-"
-		case 151:
-			p.yyVal = "*"
-		case 152:
-			p.yyVal = "/"
-		case 153:
-			p.yyVal = "%"
-		case 154:
-			p.yyVal = "=="
-		case 155:
-			p.yyVal = "!="
-		case 156:
-			p.yyVal = "<"
-		case 157:
-			p.yyVal = ">"
-		case 158:
-			p.yyVal = "<="
-		case 159:
-			p.yyVal = ">="
-		case 160:
-			p.yyVal = "<<"
-		case 161:
-			p.yyVal = ">>"
-		case 162:
-			p.yyVal = "&"
-		case 163:
-			p.yyVal = "|"
-		case 164:
-			p.yyVal = "^"
-		case 165:
-			p.yyVal = "!"
-		case 166:
-			p.yyVal = "~"
-		case 167:
-			p.yyVal = "&&"
-		case 168:
-			p.yyVal = "||"
-		case 169:
-			p.yyVal = "++"
-		case 170:
-			p.yyVal = "--"
-		case 171:
-			p.yyVal = "="
-		case 172:
-			p.yyVal = "+="
-		case 173:
-			p.yyVal = "-="
-		case 174:
-			p.yyVal = "*="
-		case 175:
-			p.yyVal = "/="
-		case 176:
-			p.yyVal = "%="
-		case 177:
-			p.yyVal = "()"
-		case 178:
-			p.yyVal = "[]"
-		case 179, 309:
-			p.yyVal = NewIdentifierDeclarator(p.yyVals[0+yyTop].(string))
-		case 180:
-			p.yyVal = NewIdentifierDeclarator("~" + p.yyVals[-1+yyTop].(string))
-		case 181:
-			p.yyVal = NewIdentifierDeclarator("operator" + p.yyVals[0+yyTop].(string))
-		case 182, 312:
-			p.yyVal = p.yyVals[-2+yyTop].(*IdentifierDeclarator).Push(p.yyVals[0+yyTop].(string))
-		case 183:
-			p.yyVal = p.yyVals[-3+yyTop].(*IdentifierDeclarator).Push("~" + p.yyVals[-1+yyTop].(string))
-		case 184, 315:
-			p.yyVal = p.yyVals[-3+yyTop].(*IdentifierDeclarator).Push("operator" + p.yyVals[0+yyTop].(string))
-		case 186, 221:
-			d := p.yyVals[-1+yyTop].(Declarator)
-			if pd, ok := d.(*PointerDeclarator); ok {
-				pd.StrongBinding = true
-			}
-			p.yyVal = d
-		case 187:
-			p.yyVal = MakeArrayDeclarator(p.yyVals[-4+yyTop].(Declarator), p.yyVals[-2+yyTop].(TypeQualifiers), p.yyVals[-1+yyTop].(Expression), false)
-		case 188, 193, 227:
-			p.yyVal = MakeArrayDeclarator(p.yyVals[-3+yyTop].(Declarator), 0, nil, false)
-		case 189, 225:
-			p.yyVal = MakeArrayDeclarator(p.yyVals[-3+yyTop].(Declarator), 0, p.yyVals[-1+yyTop].(Expression), false)
-		case 190:
-			p.yyVal = MakeArrayDeclarator(p.yyVals[-5+yyTop].(Declarator), p.yyVals[-2+yyTop].(TypeQualifiers), p.yyVals[-1+yyTop].(Expression), true)
-		case 191:
-			p.yyVal = MakeArrayDeclarator(p.yyVals[-5+yyTop].(Declarator), p.yyVals[-3+yyTop].(TypeQualifiers), p.yyVals[-1+yyTop].(Expression), true)
-		case 192:
-			p.yyVal = MakeArrayDeclarator(p.yyVals[-4+yyTop].(Declarator), p.yyVals[-2+yyTop].(TypeQualifiers), nil, false)
-		case 194, 224:
-			p.yyVal = MakeArrayDeclarator(p.yyVals[-2+yyTop].(Declarator), 0, nil, false)
-		case 195, 231, 274:
-			p.yyVal = NewFunctionDeclarator(p.yyVals[-3+yyTop].(Declarator), p.yyVals[-1+yyTop].([]*ParameterDeclaration))
-		case 196:
-			d := NewFunctionDeclarator(p.yyVals[-3+yyTop].(Declarator), nil)
-			for _, n := range p.yyVals[-1+yyTop].([]Expression) {
-				d.Parameters = append(d.Parameters, NewParameterDeclarationCtor(n))
-			}
-			p.yyVal = d
-		case 197, 230, 275:
-			p.yyVal = NewFunctionDeclarator(p.yyVals[-2+yyTop].(Declarator), []*ParameterDeclaration{})
-		case 276:
-			p.yyVal = NewFunctionDeclarator(NewIdentifierDeclarator(p.yyVals[-3+yyTop].(string)), p.yyVals[-1+yyTop].([]*ParameterDeclaration))
-		case 277:
-			p.yyVal = NewFunctionDeclarator(NewIdentifierDeclarator(p.yyVals[-2+yyTop].(string)), []*ParameterDeclaration{})
-		case 278:
-			p.yyVal = NewFunctionDeclarator(NewIdentifierDeclarator("~"+p.yyVals[-2+yyTop].(string)), []*ParameterDeclaration{})
-		case 198:
-			p.yyVal = NewPointer(TypeQualifiers(0), nil)
-		case 199:
-			p.yyVal = NewPointer(p.yyVals[0+yyTop].(TypeQualifiers), nil)
-		case 200:
-			p.yyVal = NewPointer(TypeQualifiers(0), p.yyVals[0+yyTop].(*Pointer))
-		case 201:
-			p.yyVal = NewPointer(p.yyVals[-1+yyTop].(TypeQualifiers), p.yyVals[0+yyTop].(*Pointer))
-		case 203:
-			p.yyVal = p.yyVals[-1+yyTop].(TypeQualifiers) | p.yyVals[0+yyTop].(TypeQualifiers)
-		case 204:
-			p.yyVal = TypeQualifiersConst
-		case 205:
-			p.yyVal = TypeQualifiersRestrict
-		case 206:
-			p.yyVal = TypeQualifiersVolatile
-		case 208:
-			vp := NewVarParameter()
-			p.yyVal = append(p.yyVals[-2+yyTop].([]*ParameterDeclaration), &vp.ParameterDeclaration)
-		case 209:
-			p.yyVal = []*ParameterDeclaration{p.yyVals[0+yyTop].(*ParameterDeclaration)}
-		case 210:
-			p.yyVal = append(p.yyVals[-2+yyTop].([]*ParameterDeclaration), p.yyVals[0+yyTop].(*ParameterDeclaration))
-		case 211, 213:
-			p.yyVal = NewParameterDeclarationFull(p.yyVals[-1+yyTop].(*DeclarationSpecifiers), p.yyVals[0+yyTop].(Declarator))
-		case 212:
-			p.yyVal = NewParameterDeclarationDefault(p.yyVals[-3+yyTop].(*DeclarationSpecifiers), p.yyVals[-2+yyTop].(Declarator), p.yyVals[0+yyTop].(Expression))
-		case 214:
-			p.yyVal = NewParameterDeclarationSpecs(p.yyVals[0+yyTop].(*DeclarationSpecifiers))
-		case 215:
-			p.yyVal = NewTypeName(p.yyVals[0+yyTop].(*DeclarationSpecifiers), nil)
-		case 216:
-			p.yyVal = NewTypeName(p.yyVals[-1+yyTop].(*DeclarationSpecifiers), p.yyVals[0+yyTop].(Declarator))
-		case 217:
-			p.yyVal = NewPointerDeclarator(p.yyVals[0+yyTop].(*Pointer), nil)
-		case 218:
-			p.yyVal = NewReferenceDeclarator(nil)
-		case 222, 226:
-			p.yyVal = MakeArrayDeclarator(nil, 0, nil, false)
-		case 223:
-			p.yyVal = MakeArrayDeclarator(nil, 0, p.yyVals[-1+yyTop].(Expression), false)
-		case 228:
-			p.yyVal = NewFunctionDeclarator(nil, []*ParameterDeclaration{})
-		case 229:
-			p.yyVal = NewFunctionDeclarator(nil, p.yyVals[-1+yyTop].([]*ParameterDeclaration))
-		case 232:
-			p.yyVal = NewExpressionInitializer(p.yyVals[0+yyTop].(Expression))
-		case 234:
-			p.yyVal = p.yyVals[-2+yyTop]
-		case 235:
-			l := NewStructuredInitializer()
-			l.Add(p.yyVals[0+yyTop].(Initializer))
-			p.yyVal = l
-		case 236:
-			l := NewStructuredInitializer()
-			i := p.yyVals[0+yyTop].(Initializer)
-			i.SetDesignation(p.yyVals[-1+yyTop].(*InitializerDesignation))
-			l.Add(i)
-			p.yyVal = l
-		case 237:
-			l := p.yyVals[-2+yyTop].(*StructuredInitializer)
-			l.Add(p.yyVals[0+yyTop].(Initializer))
-			p.yyVal = l
-		case 238:
-			l := p.yyVals[-3+yyTop].(*StructuredInitializer)
-			i := p.yyVals[0+yyTop].(Initializer)
-			i.SetDesignation(p.yyVals[-1+yyTop].(*InitializerDesignation))
-			l.Add(i)
-			p.yyVal = l
-		case 239:
-			p.yyVal = NewInitializerDesignation(p.yyVals[-1+yyTop].([]*InitializerDesignator))
-		case 250:
-			p.yyVal = NewLabeledStatement(p.yyVals[-2+yyTop].(string), p.yyVals[0+yyTop].(Statement), p.GetLocation(p.yyVals[-2+yyTop]))
-		case 251, 257:
-			p.yyVal = NewBlock(VariableScopeLocal)
-		case 252, 258:
-			p.yyVal = NewBlockWithStatements(VariableScopeLocal, p.yyVals[-1+yyTop].([]Statement))
-		case 253, 259:
-			p.yyVal = []Statement{p.yyVals[0+yyTop].(Statement)}
-		case 254, 260:
-			p.yyVal = append(p.yyVals[-1+yyTop].([]Statement), p.yyVals[0+yyTop].(Statement))
-		case 265:
-			fdecl := p.yyVals[-1+yyTop].(*FunctionDeclarator)
-			p.yyVal = NewFunctionDefinition(NewDeclarationSpecifiers(), fdecl, nil, p.yyVals[0+yyTop].(*Block))
-		case 266:
-			p.yyVal = &VirtualDeclarationStatement{InnerDeclaration: p.yyVals[0+yyTop].(Statement), IsVirtual: true}
-		case 267:
-			inner := NewMultiDeclaratorStatement(p.yyVals[-3+yyTop].(*DeclarationSpecifiers), p.yyVals[-2+yyTop].([]*InitDeclarator))
-			p.yyVal = &VirtualDeclarationStatement{InnerDeclaration: inner, IsOverride: true}
-		case 268:
-			inner := NewMultiDeclaratorStatement(p.yyVals[-3+yyTop].(*DeclarationSpecifiers), p.yyVals[-2+yyTop].([]*InitDeclarator))
-			p.yyVal = &VirtualDeclarationStatement{InnerDeclaration: inner, IsVirtual: true, IsOverride: true}
-		case 270:
-			decls := []*InitDeclarator{NewInitDeclarator(p.yyVals[-3+yyTop].(Declarator), nil)}
-			inner := NewMultiDeclaratorStatement(p.yyVals[-4+yyTop].(*DeclarationSpecifiers), decls)
-			p.yyVal = &VirtualDeclarationStatement{InnerDeclaration: inner, IsVirtual: true, IsPureVirtual: true}
-		case 271:
-			p.yyVal = NewVisibilityStatement(DeclarationsVisibilityPublic)
-		case 272:
-			p.yyVal = NewVisibilityStatement(DeclarationsVisibilityPrivate)
-		case 273:
-			p.yyVal = NewVisibilityStatement(DeclarationsVisibilityProtected)
-		case 279:
-			fdecl := p.yyVals[-1+yyTop].(*FunctionDeclarator)
-			ds := NewDeclarationSpecifiers()
-			decls := []*InitDeclarator{NewInitDeclarator(fdecl, nil)}
-			p.yyVal = NewMultiDeclaratorStatement(ds, decls)
-		case 280:
-			p.yyVal = nil
-		case 281:
-			p.yyVal = NewExpressionStatement(p.yyVals[-1+yyTop].(Expression))
-		case 282:
-			p.yyVal = NewIfStatement(p.yyVals[-2+yyTop].(Expression), p.yyVals[0+yyTop].(Statement), p.GetLocation(p.yyVals[-4+yyTop]))
-		case 283:
-			p.yyVal = NewIfElseStatement(p.yyVals[-4+yyTop].(Expression), p.yyVals[-2+yyTop].(Statement), p.yyVals[0+yyTop].(Statement), p.GetLocation(p.yyVals[-6+yyTop]))
-		case 284:
-			p.yyVal = NewSwitchStatement(p.yyVals[-4+yyTop].(Expression), p.yyVals[-1+yyTop].([]*SwitchCase), p.GetLocation(p.yyVals[-6+yyTop]))
-		case 285:
-			p.yyVal = NewSwitchStatement(p.yyVals[-3+yyTop].(Expression), []*SwitchCase{}, p.GetLocation(p.yyVals[-5+yyTop]))
-		case 286:
-			p.yyVal = []*SwitchCase{p.yyVals[0+yyTop].(*SwitchCase)}
-		case 287:
-			p.yyVal = append(p.yyVals[-1+yyTop].([]*SwitchCase), p.yyVals[0+yyTop].(*SwitchCase))
-		case 288:
-			p.yyVal = NewSwitchCase(p.yyVals[-2+yyTop].(Expression), p.yyVals[0+yyTop].([]Statement))
-		case 289:
-			p.yyVal = NewSwitchCase(nil, p.yyVals[0+yyTop].([]Statement))
-		case 290:
-			p.yyVal = NewWhileStatement(false, p.yyVals[-2+yyTop].(Expression), ToBlock(p.yyVals[0+yyTop].(Statement)))
-		case 291:
-			p.yyVal = NewWhileStatement(true, p.yyVals[-2+yyTop].(Expression), ToBlock(p.yyVals[-5+yyTop].(Statement)))
-		case 292, 294:
-			var cond Expression
-			if es, ok := p.yyVals[-2+yyTop].(*ExpressionStatement); ok {
-				cond = es.Expression
-			}
-			p.yyVal = NewForStatement(p.yyVals[-3+yyTop].(Statement), cond, ToBlock(p.yyVals[0+yyTop].(Statement)))
-		case 293, 295:
-			var cond Expression
-			if es, ok := p.yyVals[-3+yyTop].(*ExpressionStatement); ok {
-				cond = es.Expression
-			}
-			p.yyVal = NewForFullStatement(p.yyVals[-4+yyTop].(Statement), cond, p.yyVals[-2+yyTop].(Expression), ToBlock(p.yyVals[0+yyTop].(Statement)))
-		case 296:
-			p.yyVal = NewGotoStatement(p.yyVals[-1+yyTop].(string), p.GetLocation(p.yyVals[-2+yyTop]))
-		case 297:
-			p.yyVal = NewContinueStatement()
-		case 298:
-			p.yyVal = NewBreakStatement()
-		case 299:
-			p.yyVal = NewReturnStatement()
-		case 300:
-			p.yyVal = NewReturnValueStatement(p.yyVals[-1+yyTop].(Expression))
-		case 301, 302:
-			p.AddDeclaration(p.yyVals[0+yyTop])
-			p.yyVal = p._tu
-		case 307:
-			p.yyVal = NewFunctionDefinition(p.yyVals[-3+yyTop].(*DeclarationSpecifiers), p.yyVals[-2+yyTop].(Declarator), p.yyVals[-1+yyTop].([]*Declaration), p.yyVals[0+yyTop].(*Block))
-		case 308:
-			p.yyVal = NewFunctionDefinition(p.yyVals[-2+yyTop].(*DeclarationSpecifiers), p.yyVals[-1+yyTop].(Declarator), nil, p.yyVals[0+yyTop].(*Block))
-		case 310:
-			p.yyVal = NewIdentifierDeclarator(p.yyVals[-2+yyTop].(string)).Push(p.yyVals[0+yyTop].(string))
-		case 311:
-			p.yyVal = NewIdentifierDeclarator(p.yyVals[-3+yyTop].(string)).Push("~" + p.yyVals[0+yyTop].(string))
-		case 313:
-			p.yyVal = p.yyVals[-3+yyTop].(*IdentifierDeclarator).Push("~" + p.yyVals[0+yyTop].(string))
-		case 314:
-			p.yyVal = NewIdentifierDeclarator(p.yyVals[-3+yyTop].(string)).Push("operator" + p.yyVals[0+yyTop].(string))
-		case 316:
-			d := NewFunctionDeclarator(p.yyVals[-3+yyTop].(Declarator), []*ParameterDeclaration{})
-			p.yyVal = NewFunctionDefinition(NewDeclarationSpecifiers(), d, nil, p.yyVals[0+yyTop].(*Block))
-		case 317:
-			d := NewFunctionDeclarator(p.yyVals[-4+yyTop].(Declarator), p.yyVals[-2+yyTop].([]*ParameterDeclaration))
-			p.yyVal = NewFunctionDefinition(NewDeclarationSpecifiers(), d, nil, p.yyVals[0+yyTop].(*Block))
-		case 318, 319:
-			p.yyVal = []*Declaration{p.yyVals[0+yyTop].(*Declaration)}
-		case 320:
-			p.yyVal = append(p.yyVals[-1+yyTop].([]*Declaration), p.yyVals[0+yyTop].(*Declaration))
-		}
 
 			yyTop -= int(yyLen[yyN])
 			yyState = p.yyStates[yyTop]
@@ -792,17 +809,17 @@ continueYyLoop:
 					p.debug.shift(0, yyFinal, 0)
 				}
 				yyState = yyFinal
-				if p.yyToken < 0 {
+				if yyToken < 0 {
 					if yyLex.advance() {
-						p.yyToken = yyLex.token()
+						yyToken = yyLex.token()
 					} else {
-						p.yyToken = 0
+						yyToken = 0
 					}
 					if p.debug != nil {
-						p.debug.lex(yyState, p.yyToken, yyname(p.yyToken), yyLex.value())
+						p.debug.lex(yyState, yyToken, yyname(yyToken), yyLex.value())
 					}
 				}
-				if p.yyToken == 0 {
+				if yyToken == 0 {
 					if p.debug != nil {
 						p.debug.accept(p.yyVal)
 					}
@@ -828,4 +845,3 @@ continueYyLoop:
 		}
 	}
 }
-

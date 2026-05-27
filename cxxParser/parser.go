@@ -16,19 +16,23 @@ type CParser struct {
 	yyMax            int
 	yyVals           []interface{}
 	yyVal            interface{}
-	yyToken          int
-	yyTop            int
-	yyStates         []int
+
+	yyStates []int
+
 	yyExpectingState int
 	useGlobalStacks  bool
 	debug            yyDebug
+
+	DebugHelper string // DebugYyN, DumpTokens
 
 	_tu   *TranslationUnit
 	lexer *ParserInput
 }
 
 func NewCParser() *CParser {
-	p := &CParser{}
+	p := &CParser{
+		DebugHelper: "",
+	}
 	p.yyMax = 256
 	p.yyVals = make([]interface{}, 0)
 	p.yyVal = ""
@@ -65,7 +69,8 @@ func yyname(token int) string {
 
 func (p *CParser) yyExpectingTokens(state int) []int {
 	var ok []bool
-	if len(yyNames) > 0 {
+	if //goland:noinspection GoBoolExpressions
+	len(yyNames) > 0 {
 		ok = make([]bool, len(yyNames))
 	}
 	n := yySindex[state]
@@ -123,7 +128,7 @@ func (p *CParser) yyparseTmpl(yyLex yyInput) interface{} {
 	}
 	yyState := 0
 	p.yyVal = nil
-	p.yyToken = -1
+	yyToken := -1
 	yyErrorFlag := 0
 
 	if p.useGlobalStacks && p.yyStates != nil {
@@ -156,26 +161,26 @@ continueYyLoop:
 		for { // yyDiscarded loop
 			var yyN int
 			if yyN = int(yyDefRed[yyState]); yyN == 0 {
-				if p.yyToken < 0 {
+				if yyToken < 0 {
 					if yyLex.advance() {
-						p.yyToken = yyLex.token()
+						yyToken = yyLex.token()
 					} else {
-						p.yyToken = 0
+						yyToken = 0
 					}
 					if p.debug != nil {
-						p.debug.lex(yyState, p.yyToken, yyname(p.yyToken), yyLex.value())
+						p.debug.lex(yyState, yyToken, yyname(yyToken), yyLex.value())
 					}
 				}
 				yyN = int(yySindex[yyState])
 				if yyN != 0 {
-					yyN += p.yyToken
-					if yyN >= 0 && yyN < len(yyTable) && int(yyCheck[yyN]) == p.yyToken {
+					yyN += yyToken
+					if yyN >= 0 && yyN < len(yyTable) && int(yyCheck[yyN]) == yyToken {
 						if p.debug != nil {
 							p.debug.shift(yyState, int(yyTable[yyN]), yyErrorFlag-1)
 						}
 						yyState = int(yyTable[yyN])
 						p.yyVal = yyLex.value()
-						p.yyToken = -1
+						yyToken = -1
 						if yyErrorFlag > 0 {
 							yyErrorFlag--
 						}
@@ -184,8 +189,8 @@ continueYyLoop:
 				}
 				yyN = int(yyRindex[yyState])
 				if yyN != 0 {
-					yyN += p.yyToken
-					if yyN >= 0 && yyN < len(yyTable) && int(yyCheck[yyN]) == p.yyToken {
+					yyN += yyToken
+					if yyN >= 0 && yyN < len(yyTable) && int(yyCheck[yyN]) == yyToken {
 						yyN = int(yyTable[yyN])
 					} else {
 						// Error handling
@@ -195,7 +200,7 @@ continueYyLoop:
 							if p.debug != nil {
 								p.debug.error("syntax error")
 							}
-							if p.yyToken == 0 || p.yyToken == p.eofToken {
+							if yyToken == 0 || yyToken == p.eofToken {
 								panic(newYyUnexpectedEof())
 							}
 							yyErrorFlag = 1
@@ -205,8 +210,8 @@ continueYyLoop:
 							for {
 								yyN = int(yySindex[p.yyStates[yyTop]])
 								if yyN != 0 {
-									yyN += TokenKindYYErrorCode
-									if yyN >= 0 && yyN < len(yyTable) && int(yyCheck[yyN]) == TokenKindYYErrorCode {
+									yyN += int(TokenKindYYErrorCode)
+									if yyN >= 0 && yyN < len(yyTable) && int(yyCheck[yyN]) == int(TokenKindYYErrorCode) {
 										if p.debug != nil {
 											p.debug.shift(p.yyStates[yyTop], int(yyTable[yyN]), 3)
 										}
@@ -228,16 +233,16 @@ continueYyLoop:
 							}
 							panic(yyException{message: "irrecoverable syntax error"})
 						case 3:
-							if p.yyToken == 0 {
+							if yyToken == 0 {
 								if p.debug != nil {
 									p.debug.reject()
 								}
 								panic(yyException{message: "irrecoverable syntax error at end-of-file"})
 							}
 							if p.debug != nil {
-								p.debug.discard(yyState, p.yyToken, yyname(p.yyToken), yyLex.value())
+								p.debug.discard(yyState, yyToken, yyname(yyToken), yyLex.value())
 							}
-							p.yyToken = -1
+							yyToken = -1
 							continue continueYyDiscarded
 						}
 					}
@@ -249,7 +254,7 @@ continueYyLoop:
 						if p.debug != nil {
 							p.debug.error("syntax error")
 						}
-						if p.yyToken == 0 || p.yyToken == p.eofToken {
+						if yyToken == 0 || yyToken == p.eofToken {
 							panic(newYyUnexpectedEof())
 						}
 						yyErrorFlag = 1
@@ -259,8 +264,8 @@ continueYyLoop:
 						for {
 							yyN = int(yySindex[p.yyStates[yyTop]])
 							if yyN != 0 {
-								yyN += TokenKindYYErrorCode
-								if yyN >= 0 && yyN < len(yyTable) && int(yyCheck[yyN]) == TokenKindYYErrorCode {
+								yyN += int(TokenKindYYErrorCode)
+								if yyN >= 0 && yyN < len(yyTable) && int(yyCheck[yyN]) == int(TokenKindYYErrorCode) {
 									if p.debug != nil {
 										p.debug.shift(p.yyStates[yyTop], int(yyTable[yyN]), 3)
 									}
@@ -282,16 +287,16 @@ continueYyLoop:
 						}
 						panic(yyException{message: "irrecoverable syntax error"})
 					case 3:
-						if p.yyToken == 0 {
+						if yyToken == 0 {
 							if p.debug != nil {
 								p.debug.reject()
 							}
 							panic(yyException{message: "irrecoverable syntax error at end-of-file"})
 						}
 						if p.debug != nil {
-							p.debug.discard(yyState, p.yyToken, yyname(p.yyToken), yyLex.value())
+							p.debug.discard(yyState, yyToken, yyname(yyToken), yyLex.value())
 						}
-						p.yyToken = -1
+						yyToken = -1
 						continue continueYyDiscarded
 					}
 				}
@@ -330,17 +335,17 @@ continueYyLoop:
 					p.debug.shift(0, yyFinal, 0)
 				}
 				yyState = yyFinal
-				if p.yyToken < 0 {
+				if yyToken < 0 {
 					if yyLex.advance() {
-						p.yyToken = yyLex.token()
+						yyToken = yyLex.token()
 					} else {
-						p.yyToken = 0
+						yyToken = 0
 					}
 					if p.debug != nil {
-						p.debug.lex(yyState, p.yyToken, yyname(p.yyToken), yyLex.value())
+						p.debug.lex(yyState, yyToken, yyname(yyToken), yyLex.value())
 					}
 				}
-				if p.yyToken == 0 {
+				if yyToken == 0 {
 					if p.debug != nil {
 						p.debug.accept(p.yyVal)
 					}
@@ -412,6 +417,11 @@ func (p *CParser) ParseTranslationUnit(report *Report, name string, include Prep
 	func() {
 		defer func() {
 			if r := recover(); r != nil {
+				if len(p.DebugHelper) > 0 && strings.Contains(p.DebugHelper, "+DumpTokens") {
+					tokenDump := p.lexer.DumpTokens()
+					println(tokenDump)
+				}
+
 				switch v := r.(type) {
 				case NotImplementedException:
 					report.ErrorAt(9999, p.lexer.CurrentToken().Location, p.lexer.CurrentToken().EndLocation,
