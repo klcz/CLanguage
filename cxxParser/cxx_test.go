@@ -243,9 +243,17 @@ func addAssertFunctions(t *testing.T, mi *cxx.MachineInfo) {
 	})
 }
 
-// safeRun compiles and runs C code, recovering from runtime panics.
-// Returns the interpreter if execution completed without panic.
 func safeRun(t *testing.T, code string, mi *cxx.MachineInfo, opts ...func(*testing.T, *cxx.Executable)) *cxx.CInterpreter {
+	return doRun(t, code, mi, nil, opts)
+}
+
+func safeRunFailed(t *testing.T, code string, mi *cxx.MachineInfo, errorCodes ...int) *cxx.CInterpreter {
+	return doRun(t, code, mi, newTestPrinter(errorCodes), nil)
+}
+
+// doRun compiles and runs C code, recovering from runtime panics.
+// Returns the interpreter if execution completed without panic.
+func doRun(t *testing.T, code string, mi *cxx.MachineInfo, printer cxx.Printer, opts []func(*testing.T, *cxx.Executable)) *cxx.CInterpreter {
 	t.Helper()
 	if mi == nil {
 		mi = newTestMachineInfo(t)
@@ -260,7 +268,7 @@ func safeRun(t *testing.T, code string, mi *cxx.MachineInfo, opts ...func(*testi
 				t.Skipf("Compile panic (incomplete feature): %v", r)
 			}
 		}()
-		exe = cxx.Compile(fullCode, mi, nil)
+		exe = cxx.Compile(fullCode, mi, printer)
 	}()
 	if exe == nil {
 		t.Skip("Compile returned nil (likely incomplete feature)")
@@ -273,7 +281,7 @@ func safeRun(t *testing.T, code string, mi *cxx.MachineInfo, opts ...func(*testi
 		opt(t, exe)
 	}
 	defer func() {
-		if r := recover(); r != nil {
+		if r := recover(); r != nil && printer == nil {
 			t.Skipf("Runtime panic (likely incomplete feature): %v", r)
 		}
 	}()
@@ -281,54 +289,36 @@ func safeRun(t *testing.T, code string, mi *cxx.MachineInfo, opts ...func(*testi
 	return i
 }
 
-func safeRunFailed(t *testing.T, code string, mi *cxx.MachineInfo) *cxx.CInterpreter {
-	t.Helper()
-	if mi == nil {
-		mi = newTestMachineInfo(t)
-	}
-	fullCode := "void start() { __cinit(); main(); } " + code
-
-	// Compile with panic recovery
-	var exe *cxx.Executable
-	func() {
-		defer func() {
-			if r := recover(); r != nil {
-				t.Logf("Compile panic (AssertFailed): %v", r)
-			}
-		}()
-		exe = cxx.Compile(fullCode, mi, nil)
-	}()
-	if exe == nil {
-		t.Logf("Compile returned nil (AssertFailed)")
-		return nil
-	}
-
-	i := cxx.NewCInterpreter(exe)
-	i.Reset("start")
-	defer func() {
-		if r := recover(); r != nil {
-			t.Logf("Runtime panic (AssertFailed): %v", r)
-		}
-	}()
-	i.Run()
-	return i
+//goland:noinspection GoUnusedParameter
+func newTestPrinter(codes []int) cxx.Printer {
+	return cxx.NewSimplePrinter()
 }
 
-// safeRunParse parse C code, skipping on panic.
-func safeRunParse(t *testing.T, code string) *cxx.TranslationUnit {
+// safeParse parse C code, skipping on panic.
+func safeParse(t *testing.T, code string) *cxx.TranslationUnit {
 	t.Helper()
 	tu := cxx.ParseTranslationUnit(code)
 	assert.NotNil(t, tu)
 	return tu
 }
 
-// safeRunCompile compiles C code and returns the executable, skipping on panic.
-func safeRunCompile(t *testing.T, code string, mi *cxx.MachineInfo) *cxx.Executable {
+func safeCompile(t *testing.T, code string, mi *cxx.MachineInfo, opts ...func(*testing.T, *cxx.Executable)) *cxx.Executable {
+	return doCompile(t, code, mi, nil, opts)
+}
+
+func safeCompileFailed(t *testing.T, code string, mi *cxx.MachineInfo, errorCodes ...int) *cxx.Executable {
+	return doCompile(t, code, mi, newTestPrinter(errorCodes), nil)
+}
+
+// doCompile compiles C code and returns the executable, skipping on panic.
+//
+//goland:noinspection GoUnusedParameter
+func doCompile(t *testing.T, code string, mi *cxx.MachineInfo, printer cxx.Printer, opts []func(*testing.T, *cxx.Executable)) *cxx.Executable {
 	t.Helper()
 	if mi == nil {
 		mi = newTestMachineInfo(t)
 	}
-	fullCode := "void start() { __cinit(); main(); } " + code
+	fullCode := code
 	var exe *cxx.Executable
 	func() {
 		defer func() {
@@ -341,12 +331,15 @@ func safeRunCompile(t *testing.T, code string, mi *cxx.MachineInfo) *cxx.Executa
 	if exe == nil {
 		t.Skip("Compile returned nil (likely incomplete feature)")
 	}
+	for _, opt := range opts {
+		opt(t, exe)
+	}
 	return exe
 }
 
 //endregion
 
-func TestReturnStatement(t *testing.T) {
+func Test_CxxReturnStatement(t *testing.T) {
 	safeRun(t, `
 	int foo() { return 42; }
 	void main() {
@@ -354,10 +347,668 @@ func TestReturnStatement(t *testing.T) {
 	}`, newTestMachineInfo(t))
 }
 
-func TestCharLiteral(t *testing.T) {
+func Test_CxxCharLiteral(t *testing.T) {
 	safeRun(t, `
 	void main() {
 		char c = 'A';
 		assertAreEqual(65, c);
 	}`, newTestMachineInfo(t))
 }
+
+//region ---- ext test ----
+
+func Test_ByteFromInt(t *testing.T) {
+	assert.Equal(t, uint8(1), new(cxx.UnionValue(0x10001)).UInt8Value())
+}
+
+func Test_GotoUndefinedLabel(t *testing.T) {
+	safeRunFailed(t, `
+void main()
+{
+    goto missing;
+}
+	`, newTestMachineInfo(t), 9999)
+}
+
+func Test_DuplicateLabel(t *testing.T) {
+	safeRunFailed(t, `
+void main()
+{
+    int x = 0;
+dup:
+    x = 1;
+dup:
+    x = 2;
+}
+	`, newTestMachineInfo(t), 140)
+}
+
+func Test_EasyRun(t *testing.T) {
+	safeRun(t, `
+void main() {
+}
+	`, newTestMachineInfo(t))
+}
+
+func Test_EasyEval(t *testing.T) {
+	var result = cxx.Eval("2 + 3", "")
+	assert.Equal(t, int32(5), result)
+}
+
+func Test_EasyEvalMore(t *testing.T) {
+	var result = cxx.Eval("x * 100", "int x = 42;")
+	assert.Equal(t, int32(4200), result)
+}
+
+func Test_ReferenceTypeCreation(t *testing.T) {
+	var intType = cxx.SignedInt
+	var refType = cxx.NewCReferenceType(intType)
+	assert.Equal(t, 1, refType.NumValues())
+	assert.Equal(t, "signed int&", refType.String())
+	assert.Equal(t, refType, cxx.NewCReferenceType(intType))
+	assert.NotEqual(t, refType, cxx.NewCReferenceType(cxx.Float))
+}
+
+func Test_ReferenceScoreCastTo(t *testing.T) {
+	var intType = cxx.SignedInt
+	var refType = cxx.NewCReferenceType(intType)
+	// Reference to same reference: perfect
+	assert.Equal(t, 1000, refType.ScoreCastTo(cxx.NewCReferenceType(intType)))
+	// Reference to inner type: high score
+	assert.Equal(t, 900, refType.ScoreCastTo(intType))
+}
+
+//goland:noinspection GoBoolExpressions
+func Test_And(t *testing.T) {
+	assertTrue(t, false, "false && false")
+	assertTrue(t, false && true, "false && true")
+	assertTrue(t, true && false, "true && false")
+	assertTrue(t, true, "true && true")
+}
+
+//goland:noinspection GoBoolExpressions
+func Test_Or(t *testing.T) {
+	assertTrue(t, false, "false || false")
+	assertTrue(t, false || true, "false || true")
+	assertTrue(t, true || false, "true || false")
+	assertTrue(t, true, "true || true")
+}
+
+func Test_YieldingDelay(t *testing.T) {
+	mi := newTestMachineInfo(t)
+	hit := [3]bool{}
+	mi.AddInternalFunction("int yieldingDelay(int ms)", func(i *cxx.CInterpreter) {
+		ms := new(i.ReadArg(0)).Int16Value()
+		t.Logf("RUN Y=%d\n", i.YieldedValue)
+		hit[i.YieldedValue] = true
+		if i.YieldedValue == 0 {
+			i.Yield(1)
+		} else if i.YieldedValue == 1 {
+			i.Yield(2)
+		} else {
+			i.Yield(0)
+			i.Push(cxx.UnionValue(ms * 1000))
+		}
+	})
+	var it = safeRun(t, `
+void main () {
+    auto x = yieldingDelay(3);
+    assertAreEqual (3000, x);
+}`, mi)
+	assert.True(t, hit[0])
+	assert.False(t, hit[1])
+	assert.False(t, hit[2])
+	it.Step(10)
+	assert.True(t, hit[0])
+	assert.True(t, hit[1])
+	assert.False(t, hit[2])
+	it.Step(10)
+	assert.True(t, hit[0])
+	assert.True(t, hit[1])
+	assert.True(t, hit[2])
+}
+
+func Test_InfiniteRecursionThrows(t *testing.T) {
+	safeRunFailed(t, `
+int f (int n) {
+	return f (n);
+}
+void main () {
+	f (1);
+}
+	`, newTestMachineInfo(t))
+}
+
+func assertTrue(t *testing.T, expected bool, code string) {
+	expectedStr := "false"
+	if expected {
+		expectedStr = "true"
+	}
+	safeRun(t, `
+void main() {
+	assertBoolsAreEqual (`+expectedStr+", "+code+`);
+}
+	`, newTestMachineInfo(t))
+}
+
+func assertEqualF64(t *testing.T, f float64, code string) {
+
+	expectedStr := fmt.Sprintf("%.10g", f)
+	if !strings.Contains(expectedStr, ".") && !strings.ContainsAny(expectedStr, "eE") {
+		expectedStr += ".0"
+	}
+	safeRun(t, `
+void main() {
+	assertDoublesAreEqual (`+expectedStr+", "+code+`);
+}
+	`, newTestMachineInfo(t))
+}
+
+func assertEqualF32(t *testing.T, f float32, code string) {
+	expectedStr := fmt.Sprintf("%.10g", f)
+	if !strings.Contains(expectedStr, ".") && !strings.ContainsAny(expectedStr, "eE") {
+		expectedStr += ".0"
+	}
+	safeRun(t, `
+void main() {
+	assertDoublesAreEqual (`+expectedStr+", "+code+`);
+}
+	`, newTestMachineInfo(t))
+}
+
+func Test_FloatArithmetic(t *testing.T) {
+	assertEqualF32(t, 10.0+3.01, "10.0f+3.01f")
+	assertEqualF32(t, 10.0-3.01, "10.0f-3.01f")
+	assertEqualF32(t, 10.0*3.01, "10.0f*3.01f")
+	assertEqualF32(t, 10.0/3.01, "10.0f/3.01f")
+}
+
+func Test_DoubleArithmetic(t *testing.T) {
+	assertEqualF64(t, 10.0+3.01, "10.0+3.01")
+	assertEqualF64(t, 10.0-3.01, "10.0-3.01")
+	assertEqualF64(t, 10.0*3.01, "10.0*3.01")
+	assertEqualF64(t, 10.0/3.01, "10.0/3.01")
+}
+
+//goland:noinspection GoBoolExpressions
+func Test_DoubleLogic(t *testing.T) {
+	assertTrue(t, 10.0 < 3.01, "10.0<3.01")
+	assertTrue(t, 10.0 > 3.01, "10.0>3.01")
+	assertTrue(t, 10.0 == 3.01, "10.0==3.01")
+	assertTrue(t, 10.0 <= 3.01, "10.0<=3.01")
+	assertTrue(t, 10.0 >= 3.01, "10.0>=3.01")
+	assertTrue(t, 10.0 <= 10.0, "10.0<=10.0")
+	assertTrue(t, 10.0 >= 10.0, "10.0>=10.0")
+}
+
+//goland:noinspection GoBoolExpressions
+func Test_FloatLogic(t *testing.T) {
+	assertTrue(t, 10.0 < 3.01, "10.0f<3.01f")
+	assertTrue(t, 10.0 > 3.01, "10.0f>3.01f")
+	assertTrue(t, 10.0 == 3.01, "10.0f==3.01f")
+	assertTrue(t, 10.0 <= 3.01, "10.0f<=3.01f")
+	assertTrue(t, 10.0 >= 3.01, "10.0f>=3.01f")
+	assertTrue(t, 10.0 <= 10.0, "10.0f<=10.0f")
+	assertTrue(t, 10.0 >= 10.0, "10.0f>=10.0f")
+}
+
+func Test_IntegerConstantArithmeticWithDouble(t *testing.T) {
+	assertEqualF64(t, 100000.0+1.5, "100000 + 1.5")
+	assertEqualF64(t, 100000.0*2.0, "100000 * 2.0")
+}
+
+func parseType(code string) (*cxx.ExecutableContext, cxx.CType) {
+	printer := newTestPrinter(nil)
+	_c := cxx.NewExecutableContext(cxx.NewExecutable(cxx.Windows32), cxx.NewReport(printer))
+	exe := cxx.Compile(code, cxx.Windows32, printer)
+	return _c, exe.Globals[1].VariableType
+}
+
+func Test_BasicSizes(t *testing.T) {
+	tests := map[string]int{
+		"char a;":               1,
+		"signed char a;":        1,
+		"unsigned char a;":      1,
+		"short a;":              2,
+		"signed short a;":       2,
+		"unsigned short a;":     2,
+		"int a;":                4,
+		"signed int a;":         4,
+		"unsigned int a;":       4,
+		"long a;":               4,
+		"long long a;":          8,
+		"long long int a;":      8,
+		"unsigned long a;":      4,
+		"unsigned long long a;": 8,
+		"double a;":             8,
+		"float a;":              4,
+		"long double a;":        8,
+		"bool a;":               1,
+	}
+	for code, size := range tests {
+		_c, typ := parseType(code)
+		assert.Equal(t, size, typ.GetByteSize(_c.EmitContext), "code: `"+code+"`")
+		assert.Equal(t, 1, typ.NumValues(), "code: `"+code+"`")
+	}
+}
+
+func Test_PointerSizes(t *testing.T) {
+	tests := map[string]int{
+		"char* a;":                  4,
+		"int* a;":                   4,
+		"double* a;":                4,
+		"char** a;":                 4,
+		"const char* a;":            4,
+		"const char** a;":           4,
+		"char *const a = 0;":        4,
+		"const char *const a = 0;":  4,
+		"char *const *a;":           4,
+		"char *const *const a = 0;": 4,
+		"char *const **a;":          4,
+		"char *const ****a;":        4,
+		"int (*a)(int);":            4,
+		"int *(*a)(int);":           4,
+		"int *(**a)(int);":          4,
+	}
+	for code, size := range tests {
+		_c, typ := parseType(code)
+		assert.Equal(t, size, typ.GetByteSize(_c.EmitContext), "code: `"+code+"`")
+		assert.Equal(t, 1, typ.NumValues(), "code: `"+code+"`")
+	}
+}
+
+func Test_ArrayByteSizes(t *testing.T) {
+	tests := map[string]int{
+		"char a[42];":                  42,
+		"char a[42][12];":              504,
+		"char *a[42];":                 168,
+		"char *a[42][12];":             2016,
+		"int a[42];":                   168,
+		"int a[42][12];":               2016,
+		"int *a[42];":                  168,
+		"int *a[42][12];":              2016,
+		"int (*a)[42];":                4,
+		"int (*a)[42][12];":            4,
+		"int (*a[5])[42];":             20,
+		"int (*a[5])[42][12];":         20,
+		"int (*a[5])[2][3][5][7][11];": 20,
+		"int (*a)[2][3][5][7][11];":    4,
+		"int *a[2][3][5][7][11];":      9240,
+		"short *a[2][3][5][7][11];":    9240,
+		"short a[2][3][5][7][11];":     4620,
+		"short (a[2][3])[5][7][11];":   4620,
+	}
+
+	for code, size := range tests {
+		_c, typ := parseType(code)
+		assert.Equal(t, size, typ.GetByteSize(_c.EmitContext), "code: `"+code+"`")
+	}
+}
+func Test_ArrayNumValues(t *testing.T) {
+	tests := map[string]int{
+		"char a[42];":      42,
+		"char a[42][12];":  504,
+		"char *a[42];":     42,
+		"char *a[42][12];": 504,
+		"int a[42];":       42,
+		"int a[42][12];":   504,
+		"int *a[42];":      42,
+		"int *a[42][12];":  504,
+	}
+	for code, size := range tests {
+		_, typ := parseType(code)
+		assert.Equal(t, size, typ.NumValues(), "code: `"+code+"`")
+	}
+}
+
+func Test_ErrorIfDoesntReturn(t *testing.T) {
+	safeCompileFailed(t, "int f () { int a = 42; }", newArduinoTestMachineInfo(t), 161)
+}
+
+func Test_ErrorIfDoesntReturnValue(t *testing.T) {
+	safeCompileFailed(t, "int f () { int a = 42; return; }", newArduinoTestMachineInfo(t), 126)
+}
+
+func Test_ReturnConstant(t *testing.T) {
+	exe := safeCompile(t, "int f () { return 42; }", newArduinoTestMachineInfo(t))
+	var f *cxx.CompiledFunction
+	for _, bf := range exe.Functions {
+		if bf.GetName() == "f" {
+			f = bf.(*cxx.CompiledFunction)
+			break
+		}
+	}
+	if f == nil {
+		t.Fatal("function 'f' not found in executable")
+		return
+	}
+
+	assert.Equal(t, len(f.Instructions), 2)
+
+	assert.Equal(t, f.Instructions[0].Op, cxx.OpCodeLoadConstant)
+	assert.Equal(t, f.Instructions[1].Op, cxx.OpCodeReturn)
+}
+
+func Test_ReturnParamExpr(t *testing.T) {
+	exe := safeCompile(t, "int f (int i) { return i + 42; }", newArduinoTestMachineInfo(t))
+	var f *cxx.CompiledFunction
+	for _, bf := range exe.Functions {
+		if bf.GetName() == "f" {
+			f = bf.(*cxx.CompiledFunction)
+			break
+		}
+	}
+	if f == nil {
+		t.Fatal("function 'f' not found in executable")
+		return
+	}
+
+	assert.Equal(t, len(f.Instructions), 4)
+
+	assert.Equal(t, f.Instructions[0].Op, cxx.OpCodeLoadArg)
+	assert.Equal(t, f.Instructions[1].Op, cxx.OpCodeLoadConstant)
+	assert.Equal(t, f.Instructions[2].Op, cxx.OpCodeAddInt16)
+	assert.Equal(t, f.Instructions[3].Op, cxx.OpCodeReturn)
+}
+
+func Test_ConditionalReturn(t *testing.T) {
+	exe := safeCompile(t, "int f (int i) { if (i) return 0; else return 42; }", newArduinoTestMachineInfo(t), dumpOpCode)
+	var f *cxx.CompiledFunction
+	for _, bf := range exe.Functions {
+		if bf.GetName() == "f" {
+			f = bf.(*cxx.CompiledFunction)
+			break
+		}
+	}
+	if f == nil {
+		t.Fatal("function 'f' not found in executable")
+		return
+	}
+
+	assert.Equal(t, len(f.Instructions), 8)
+	assert.Equal(t, f.Instructions[0].Op, cxx.OpCodeLoadArg)
+	assert.Equal(t, f.Instructions[1].Op, cxx.OpCodeConvertInt16UInt8)
+	assert.Equal(t, f.Instructions[2].Op, cxx.OpCodeBranchIfFalse)
+	assert.Equal(t, f.Instructions[3].Op, cxx.OpCodeLoadConstant)
+	assert.Equal(t, f.Instructions[4].Op, cxx.OpCodeReturn)
+	assert.Equal(t, f.Instructions[5].Op, cxx.OpCodeJump)
+	assert.Equal(t, f.Instructions[6].Op, cxx.OpCodeLoadConstant)
+	assert.Equal(t, f.Instructions[7].Op, cxx.OpCodeReturn)
+}
+
+func Test_VoidFunctionsHaveNoValue(t *testing.T) {
+	safeCompileFailed(t, `
+void f () {
+}
+void main () {
+	int a = f ();
+}
+	`, newArduinoTestMachineInfo(t), 30)
+}
+
+func Test_LocalVariables(t *testing.T) {
+	exe := safeCompile(t, `
+void f () {
+	int a = 4;
+	int b = 8;
+	int c = a + b;
+}
+	`, newArduinoTestMachineInfo(t))
+	var f *cxx.CompiledFunction
+	for _, bf := range exe.Functions {
+		if bf.GetName() == "f" {
+			f = bf.(*cxx.CompiledFunction)
+			break
+		}
+	}
+	if f == nil {
+		t.Fatal("function 'f' not found in executable")
+		return
+	}
+
+	assert.Equal(t, len(f.LocalVariables), 3)
+}
+
+func Test_LocalVariablesWithAuto(t *testing.T) {
+	exe := safeCompile(t, `
+void f () {
+    auto i = 1;
+    auto j = i + 1;
+}
+	`, newArduinoTestMachineInfo(t))
+	var f *cxx.CompiledFunction
+	for _, bf := range exe.Functions {
+		if bf.GetName() == "f" {
+			f = bf.(*cxx.CompiledFunction)
+			break
+		}
+	}
+	if f == nil {
+		t.Fatal("function 'f' not found in executable")
+		return
+	}
+
+	assert.Equal(t, len(f.LocalVariables), 2)
+}
+
+var BlinkCode = `
+void setup() {
+	// initialize the digital pin as an output.
+	// Pin 13 has an LED connected on most Arduino boards:
+	pinMode(13, OUTPUT);
+}
+
+void loop() {
+	digitalWrite(13, HIGH);   // set the LED on
+	delay(1000);              // wait for a second
+	digitalWrite(13, LOW);    // set the LED off
+	delay(1000);              // wait for a second
+}
+`
+var FadeCode = `
+int brightness = 0;    // how bright the LED is
+int fadeAmount = 5;    // how many points to fade the LED by
+
+void setup()  {
+	// declare pin 9 to be an output:
+	pinMode(9, OUTPUT);
+}
+
+void loop()  {
+	// set the brightness of pin 9:
+	analogWrite(9, brightness);
+	
+	// change the brightness for next time through the loop:
+	brightness = brightness + fadeAmount;
+	
+	// reverse the direction of the fading at the ends of the fade: 
+	if (brightness == 0 || brightness == 255) {
+		fadeAmount = -fadeAmount ;
+	}
+	// wait for 30 milliseconds to see the dimming effect    
+	delay(30);
+}
+`
+
+func Test_ArduinoBlink(t *testing.T) {
+	var exe = safeCompile(t, BlinkCode, newArduinoTestMachineInfo(t))
+	var f *cxx.CompiledFunction
+	for _, bf := range exe.Functions {
+		if bf.GetName() == "loop" {
+			f = bf.(*cxx.CompiledFunction)
+			break
+		}
+	}
+	if f == nil {
+		t.Fatal("function 'loop' not found in executable")
+		return
+	}
+}
+
+func Test_ArduinoFade(t *testing.T) {
+	var exe = safeCompile(t, FadeCode, newArduinoTestMachineInfo(t))
+	var f *cxx.CompiledFunction
+	for _, bf := range exe.Functions {
+		if bf.GetName() == "loop" {
+			f = bf.(*cxx.CompiledFunction)
+			break
+		}
+	}
+	if f == nil {
+		t.Fatal("function 'loop' not found in executable")
+		return
+	}
+}
+
+func Test_CannotAssignToFuncalls(t *testing.T) {
+	safeCompileFailed(t, "int foo() {return 1;} int main() { foo() = 42; return 0; }", newArduinoTestMachineInfo(t), 131)
+}
+
+func Test_CannotAssignToFunctions(t *testing.T) {
+	safeCompileFailed(t, "int foo() {return 1;} int main() { foo = 42; return 0; }", newArduinoTestMachineInfo(t), 30, 1656)
+}
+
+func Test_ErrorOnVariableRedeclarationSameScope(t *testing.T) {
+	safeCompileFailed(t, "void f () { int x = 1; int x = 2; }", newArduinoTestMachineInfo(t), 2086)
+}
+
+func Test_ErrorOnVariableRedeclarationSameScopeNoInit(t *testing.T) {
+	safeCompileFailed(t, "void f () { int x; int x; }", newArduinoTestMachineInfo(t), 2086)
+}
+
+func Test_ErrorOnVariableRedeclarationDifferentTypes(t *testing.T) {
+	safeCompileFailed(t, "void f () { int x = 1; float x = 2.0; }", newArduinoTestMachineInfo(t), 2086)
+}
+
+func Test_ErrorOnMultipleRedeclarationsSameScope(t *testing.T) {
+	safeCompileFailed(t, "void f () { int x; int x; int x; }", newArduinoTestMachineInfo(t), 2086)
+}
+
+func assertColorization(t *testing.T, code string, expectedColors ...cxx.SyntaxColor) {
+	mi := newTestMachineInfo(t)
+	mi.AddInternalFunction("void delay()", nil)
+	mi.HeaderCode = "#define FOO 1\n\nvoid delay();\n\n"
+
+	var colors = cxx.Colorize(code, mi, nil)
+	assert.Equal(t, len(expectedColors), len(colors), "Number of colored tokens don't match.")
+	for i, color := range colors {
+		ecolor := expectedColors[i]
+		assert.True(t, color.Length > 0, "Span has length == 0")
+		assert.Equal(t, ecolor, color.Color)
+	}
+}
+
+func Test_Expression(t *testing.T) {
+	assertColorization(t, "42 / 100.0 + 50",
+		cxx.SyntaxColorNumber,
+		cxx.SyntaxColorOperator,
+		cxx.SyntaxColorNumber,
+		cxx.SyntaxColorOperator,
+		cxx.SyntaxColorNumber)
+}
+
+func Test_IfStatement(t *testing.T) {
+	assertColorization(t, "if (true) {}",
+		cxx.SyntaxColorKeyword,
+		cxx.SyntaxColorOperator,
+		cxx.SyntaxColorNumber,
+		cxx.SyntaxColorOperator,
+		cxx.SyntaxColorOperator,
+		cxx.SyntaxColorOperator)
+}
+
+func Test_IntTypeDecl(t *testing.T) {
+	assertColorization(t, "int x = 42;",
+		cxx.SyntaxColorType,
+		cxx.SyntaxColorIdentifier,
+		cxx.SyntaxColorOperator,
+		cxx.SyntaxColorNumber,
+		cxx.SyntaxColorOperator)
+}
+
+func Test_StringLiteral(t *testing.T) {
+	assertColorization(t, "*\"Hello\"",
+		cxx.SyntaxColorOperator,
+		cxx.SyntaxColorString)
+}
+
+func Test_CharLiteral(t *testing.T) {
+	assertColorization(t, "'h'",
+		cxx.SyntaxColorString)
+}
+
+func Test_SimpleStatement(t *testing.T) {
+	assertColorization(t, "f;",
+		cxx.SyntaxColorIdentifier,
+		cxx.SyntaxColorOperator)
+}
+
+func Test_UnknownFuncall(t *testing.T) {
+	assertColorization(t, "foo();",
+		cxx.SyntaxColorIdentifier,
+		cxx.SyntaxColorOperator,
+		cxx.SyntaxColorOperator,
+		cxx.SyntaxColorOperator)
+}
+
+func Test_KnownFuncall(t *testing.T) {
+	assertColorization(t, "delay();",
+		cxx.SyntaxColorFunction,
+		cxx.SyntaxColorOperator,
+		cxx.SyntaxColorOperator,
+		cxx.SyntaxColorOperator)
+}
+
+func Test_VoidFundef(t *testing.T) {
+	assertColorization(t, "void foo();",
+		cxx.SyntaxColorKeyword,
+		cxx.SyntaxColorIdentifier,
+		cxx.SyntaxColorOperator,
+		cxx.SyntaxColorOperator,
+		cxx.SyntaxColorOperator)
+}
+
+func Test_MultilineComment(t *testing.T) {
+	assertColorization(t, "2 + /* la dee \n\n\n daaa */ foo",
+		cxx.SyntaxColorNumber,
+		cxx.SyntaxColorOperator,
+		cxx.SyntaxColorIdentifier)
+}
+
+func Test_MachineInfoDefine(t *testing.T) {
+	assertColorization(t, "FOO + 2",
+		cxx.SyntaxColorIdentifier,
+		cxx.SyntaxColorOperator,
+		cxx.SyntaxColorNumber)
+}
+
+func Test_UserDefine(t *testing.T) {
+	assertColorization(t, "#define FOOFOO 100\n\nFOOFOO + 3",
+		cxx.SyntaxColorOperator,
+		cxx.SyntaxColorKeyword,
+		cxx.SyntaxColorIdentifier,
+		cxx.SyntaxColorNumber,
+		cxx.SyntaxColorIdentifier,
+		cxx.SyntaxColorOperator,
+		cxx.SyntaxColorNumber)
+}
+
+func Test_UnsignedSigned(t *testing.T) {
+	assertColorization(t, "signed int x; unsigned int y;",
+		cxx.SyntaxColorType,
+		cxx.SyntaxColorType,
+		cxx.SyntaxColorIdentifier,
+		cxx.SyntaxColorOperator,
+		cxx.SyntaxColorType,
+		cxx.SyntaxColorType,
+		cxx.SyntaxColorIdentifier,
+		cxx.SyntaxColorOperator)
+}
+
+func Test_UnterminatedString(t *testing.T) {
+	assertColorization(t, "\"sdfsdfsd\nx",
+		cxx.SyntaxColorString,
+		cxx.SyntaxColorIdentifier)
+}
+
+//endregion

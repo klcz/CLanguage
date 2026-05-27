@@ -558,12 +558,24 @@ func (m *MachineInfo) GeneratedHeaderCode() string {
 	return w.Code()
 }
 
+type FuncEval int
+
+const (
+	FuncEvalAuto FuncEval = iota
+	FuncEvalDelay
+	FuncEvalStatic
+)
+
 func (m *MachineInfo) AddInternalFunction(prototype string, action InternalFunctionAction) {
-	m.InternalFunctions = append(m.InternalFunctions, NewInternalFunction(m, prototype, action, false))
+	m.InternalFunctions = append(m.InternalFunctions, NewInternalFunction(m, prototype, action, FuncEvalAuto))
 }
 
 func (m *MachineInfo) AddInternalFunctionDelay(prototype string, action InternalFunctionAction) {
-	m.InternalFunctions = append(m.InternalFunctions, NewInternalFunction(m, prototype, action, true))
+	m.InternalFunctions = append(m.InternalFunctions, NewInternalFunction(m, prototype, action, FuncEvalDelay))
+}
+
+func (m *MachineInfo) AddInternalFunctionStatic(prototype string, action InternalFunctionAction) {
+	m.InternalFunctions = append(m.InternalFunctions, NewInternalFunction(m, prototype, action, FuncEvalStatic))
 }
 
 func (m *MachineInfo) AddGlobalMethods(target any) {
@@ -1082,7 +1094,7 @@ type InternalFunction struct {
 }
 
 //goland:noinspection GoUnusedParameter
-func NewInternalFunction(m *MachineInfo, prototype string, action InternalFunctionAction, delay bool) *InternalFunction {
+func NewInternalFunction(m *MachineInfo, prototype string, action InternalFunctionAction, funcEval FuncEval) *InternalFunction {
 	proto := strings.TrimSpace(prototype)
 
 	parenIdx := strings.Index(proto, "(")
@@ -1098,42 +1110,82 @@ func NewInternalFunction(m *MachineInfo, prototype string, action InternalFuncti
 
 	name := parts[len(parts)-1]
 	nameContext := ""
-	parenJdx := strings.Index(name, "::")
+	parenJdx := strings.LastIndex(name, "::")
 	if parenJdx >= 0 {
 		nameContext = name[:parenJdx]
 		name = name[parenJdx+2:]
 	}
 
 	returnTypeStr := strings.Join(parts[:len(parts)-1], " ")
-
 	paramsStr := proto[parenIdx+1:]
 	if endIdx := strings.LastIndex(paramsStr, ")"); endIdx >= 0 {
 		paramsStr = paramsStr[:endIdx]
 	}
 	paramsStr = strings.TrimSpace(paramsStr)
 
+	functionType, notFound := BuildFunctionTypeByStr(nameContext, returnTypeStr, paramsStr, parseCTypeName)
+	if funcEval == FuncEvalStatic || (funcEval == FuncEvalAuto && len(notFound) == 0) {
+		return &InternalFunction{name: name, nameContext: nameContext, functionType: functionType, Action: action}
+	}
+
 	functionTypeDelay := func(resolve TypeResolve) *CFunctionType {
-		return BuildFunctionType(returnTypeStr, paramsStr, func(name string) CType {
+		functionTypeD, notFoundD := BuildFunctionTypeByStr(nameContext, returnTypeStr, paramsStr, func(name string) CType {
 			if typ := parseCTypeName(name); typ != nil {
 				return typ
 			}
 			return resolve.ResolveTypeNameString(name)
 		})
+		_ = notFoundD
+		return functionTypeD
 	}
-	if !delay {
-		functionTypeDelay = nil
-	}
-	functionType := BuildFunctionType(returnTypeStr, paramsStr, parseCTypeName)
 	return &InternalFunction{name: name, nameContext: nameContext, functionType: functionType, Action: action, functionTypeDelay: functionTypeDelay}
 }
 
-func BuildFunctionType(returnTypeStr, paramsStr string, typeResolve func(string) CType) *CFunctionType {
-	returnType := typeResolve(returnTypeStr)
+func resolveQualifiedCXXType(typeStr string, typeResolve func(string) CType) CType {
+	s := strings.TrimSpace(typeStr)
+	if strings.HasPrefix(s, "const ") {
+		s = strings.TrimSpace(s[6:])
+	}
+	isRef := false
+	if strings.HasSuffix(s, "&") {
+		s = strings.TrimSuffix(s, "&")
+		s = strings.TrimSpace(s)
+		isRef = true
+	}
+	inner := typeResolve(s)
+	if inner == nil {
+		return nil
+	}
+	if isRef {
+		return NewCReferenceType(inner)
+	}
+	return inner
+}
+
+func BuildFunctionTypeByStr(nameContext, returnTypeStr, paramsStr string, typeResolve func(string) CType) (*CFunctionType, []string) {
+	notFound := make([]string, 0)
+	returnType := resolveQualifiedCXXType(returnTypeStr, typeResolve)
 	if returnType == nil {
 		returnType = SignedInt
+		if len(returnTypeStr) > 0 {
+			notFound = append(notFound, returnTypeStr)
+		}
 	}
 
-	functionType := NewCFunctionType(returnType, false, nil)
+	declaringTypeStr := nameContext
+	parenJdx := strings.LastIndex(nameContext, "::")
+	if parenJdx >= 0 {
+		declaringTypeStr = nameContext[parenJdx+2:]
+	}
+	var declaringType CType
+	if len(declaringTypeStr) > 0 {
+		declaringType = typeResolve(declaringTypeStr)
+		if declaringType == nil && len(declaringTypeStr) > 0 {
+			notFound = append(notFound, declaringTypeStr)
+		}
+	}
+
+	functionType := NewCFunctionType(returnType, declaringType != nil, declaringType)
 
 	if paramsStr != "" && paramsStr != "void" {
 		for _, ps := range splitFuncParams(paramsStr) {
@@ -1149,22 +1201,28 @@ func BuildFunctionType(returnTypeStr, paramsStr string, typeResolve func(string)
 			if strings.HasPrefix(paramName, "*") {
 				paramTypeStr := strings.Join(paramParts[:len(paramParts)-1], " ")
 				paramName = strings.TrimPrefix(paramName, "*")
-				pt := typeResolve(paramTypeStr)
+				pt := resolveQualifiedCXXType(paramTypeStr, typeResolve)
 				if pt == nil {
 					pt = SignedInt
+					if len(paramTypeStr) > 0 {
+						notFound = append(notFound, paramTypeStr)
+					}
 				}
 				functionType.AddParameter(paramName, NewCPointerType(pt), nil)
 			} else {
 				paramTypeStr := strings.Join(paramParts[:len(paramParts)-1], " ")
-				pt := typeResolve(paramTypeStr)
+				pt := resolveQualifiedCXXType(paramTypeStr, typeResolve)
 				if pt == nil {
 					pt = SignedInt
+					if len(paramTypeStr) > 0 {
+						notFound = append(notFound, paramTypeStr)
+					}
 				}
 				functionType.AddParameter(paramName, pt, nil)
 			}
 		}
 	}
-	return functionType
+	return functionType, notFound
 }
 
 func parseCTypeName(s string) CType {

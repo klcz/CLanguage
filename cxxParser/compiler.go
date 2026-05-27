@@ -258,7 +258,7 @@ func (ec *ExecutableContext) ResolveMethodFunction(structType *CStructType, meth
 }
 
 func (ec *ExecutableContext) UnresolvedMethod(typeName string, methodName string) *InternalFunction {
-	return NewInternalFunction(ec.machineInfo, "void "+typeName+"::"+methodName+"()", nil, false)
+	return NewInternalFunction(ec.machineInfo, "void "+typeName+"::"+methodName+"()", nil, FuncEvalStatic)
 }
 
 func (ec *ExecutableContext) GetConstantMemory(stringConstant string) Value {
@@ -667,7 +667,7 @@ func (cc *CCompiler) CompileExecutable() *Executable {
 	if len(polymorphicTypes) > 0 {
 		trapFunc := NewInternalFunction(cc.options.MachineInfo, "__pure_virtual_called", func(state *CInterpreter) {
 			panic("Pure virtual function called")
-		}, false)
+		}, FuncEvalStatic)
 		pureVirtualTrap = trapFunc
 		exe.Functions = append(exe.Functions, trapFunc)
 	}
