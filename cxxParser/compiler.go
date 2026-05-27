@@ -54,10 +54,16 @@ func (fc *FunctionContext) String() string {
 }
 
 func (fc *FunctionContext) ResolveTypeNameString(typeName string) CType {
-	// Look for local types
+	// Look for local types (typedefs, enums, structs)
 	for i := len(fc.blocks) - 1; i >= 0; i-- {
 		b := fc.blocks[i]
 		if t, ok := b.Typedefs[typeName]; ok {
+			return t
+		}
+		if t, ok := b.Enums[typeName]; ok {
+			return t
+		}
+		if t, ok := b.Structures[typeName]; ok {
 			return t
 		}
 	}
@@ -318,7 +324,7 @@ func (ec *ExecutableContext) TryResolveQualifiedFunction(nameContext string, nam
 		}
 	}
 	if bestFunction != nil {
-		return &ResolvedVariable{Function: bestFunction, Address: bestIndex, VariableType: bestFunction.GetFunctionType()}
+		return &ResolvedVariable{Function: bestFunction, Address: bestIndex, VariableType: bestFunction.GetFunctionType(), Scope: VariableScopeFunction}
 	}
 	return ec.EmitContext.TryResolveQualifiedFunction(nameContext, name, argTypes)
 }
@@ -364,7 +370,7 @@ func (tuc *TranslationUnitContext) TryResolveVariable(name string, argTypes []CT
 	for _, e := range tuc.TranslationUnit.Enums {
 		for _, em := range e.Members {
 			if em.Name == name {
-				return &ResolvedVariable{Constant: ValueOf(int64(em.Value)), VariableType: e}
+				return &ResolvedVariable{Scope: VariableScopeConstant, Constant: ValueOf(int64(em.Value)), VariableType: e}
 			}
 		}
 	}
@@ -396,7 +402,7 @@ func NewEnumContext(enumTs *TypeSpecifier, et *CEnumType, parent *EmitContext) *
 func (ec *EnumContext) TryResolveVariable(name string, argTypes []CType) *ResolvedVariable {
 	for _, m := range ec.et.Members {
 		if m.Name == name {
-			return &ResolvedVariable{Constant: ValueOf(int64(m.Value)), VariableType: ec.et}
+			return &ResolvedVariable{Scope: VariableScopeConstant, Constant: ValueOf(int64(m.Value)), VariableType: ec.et}
 		}
 	}
 	return ec.EmitContext.TryResolveVariable(name, argTypes)
@@ -916,12 +922,13 @@ func (l *Label) GetIndex() int { return l.Index }
 
 func (e *Executable) AddGlobal(name string, ctype CType) *CompiledVariable {
 	offset := e.NextGlobalOffset()
+	index := len(e.Globals)
 	e.Globals = append(e.Globals, CompiledGlobal{
 		Name:         name,
 		VariableType: ctype,
 		StackOffset:  offset,
 	})
-	return &CompiledVariable{Name: name, StackOffset: offset, VariableType: ctype}
+	return &e.Globals[index]
 }
 
 func (e *Executable) NextGlobalOffset() int {
@@ -948,5 +955,5 @@ func (e *Executable) GetConstantMemory(stringConstant string) Value {
 }
 
 func (e *Executable) AddTypeHierarchyEntry(entry *TypeHierarchyEntry) {
-	e.typeHierarchy = append(e.typeHierarchy, entry)
+	e.TypeHierarchy = append(e.TypeHierarchy, entry)
 }

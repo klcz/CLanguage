@@ -34,7 +34,7 @@ func declarationParseFunctions(t *testing.T, code string) []BaseFunction {
 	return funcs
 }
 
-func TestDeclarationBasic(t *testing.T) {
+func Test_Basic(t *testing.T) {
 	vs := declarationParseVariables(t, "int cat;")
 	if vs == nil {
 		return
@@ -44,7 +44,7 @@ func TestDeclarationBasic(t *testing.T) {
 	assert.IsType(t, &CIntType{}, vs[0].VariableType)
 }
 
-func TestDeclarationSignednessBasic(t *testing.T) {
+func Test_SignednessBasic(t *testing.T) {
 	vs := declarationParseVariables(t, "unsigned int x; signed int y; int z; unsigned char grey; signed char white;")
 	if vs == nil || len(vs) < 5 {
 		return
@@ -56,7 +56,7 @@ func TestDeclarationSignednessBasic(t *testing.T) {
 	assert.Equal(t, Signed, vs[4].VariableType.GetBasicType().Signedness)
 }
 
-func TestDeclarationSignednessNoBasic(t *testing.T) {
+func Test_SignednessNoBasic(t *testing.T) {
 	vs := declarationParseVariables(t, "unsigned x; signed y;")
 	if vs == nil || len(vs) < 2 {
 		return
@@ -67,7 +67,7 @@ func TestDeclarationSignednessNoBasic(t *testing.T) {
 	assert.Equal(t, "int", vs[1].VariableType.GetBasicType().Name)
 }
 
-func TestDeclarationSizeBasic(t *testing.T) {
+func Test_SizeBasic(t *testing.T) {
 	vs := declarationParseVariables(t, "short int yellow; long int orange; long long int red; long brown; long double black;")
 	if vs == nil || len(vs) < 5 {
 		return
@@ -83,7 +83,7 @@ func TestDeclarationSizeBasic(t *testing.T) {
 	assert.Equal(t, "double", vs[4].VariableType.GetBasicType().Name)
 }
 
-func TestDeclarationPointer(t *testing.T) {
+func Test_Pointer(t *testing.T) {
 	vs := declarationParseVariables(t, "char *square;")
 	if vs == nil {
 		return
@@ -100,7 +100,7 @@ func TestDeclarationPointer(t *testing.T) {
 	assert.Equal(t, "char", pt.InnerType.GetBasicType().Name)
 }
 
-func TestDeclarationVoidPointer(t *testing.T) {
+func Test_VoidPointer(t *testing.T) {
 	vs := declarationParseVariables(t, "void *triangle;")
 	if vs == nil {
 		return
@@ -117,7 +117,7 @@ func TestDeclarationVoidPointer(t *testing.T) {
 	assert.True(t, pt.InnerType.IsVoid())
 }
 
-func TestDeclarationPointerSeparation(t *testing.T) {
+func Test_PointerSeparation(t *testing.T) {
 	vs := declarationParseVariables(t, "long* first, second;")
 	if vs == nil || len(vs) < 2 {
 		return
@@ -128,7 +128,7 @@ func TestDeclarationPointerSeparation(t *testing.T) {
 	assert.True(t, ok, "second should be basic int")
 }
 
-func TestDeclarationArray(t *testing.T) {
+func Test_Array(t *testing.T) {
 	vs := declarationParseVariables(t, "int cat[10];")
 	if vs == nil {
 		return
@@ -143,7 +143,7 @@ func TestDeclarationArray(t *testing.T) {
 	assert.IsType(t, &CIntType{}, a.ElementType)
 }
 
-func TestDeclarationArrayOfArrays(t *testing.T) {
+func Test_ArrayOfArrays(t *testing.T) {
 	vs := declarationParseVariables(t, "double dog[5][12];")
 	if vs == nil {
 		return
@@ -166,7 +166,7 @@ func TestDeclarationArrayOfArrays(t *testing.T) {
 	assert.Equal(t, "double", a1.ElementType.GetBasicType().Name)
 }
 
-func TestDeclarationPointerToArray(t *testing.T) {
+func Test_PointerToArray(t *testing.T) {
 	vs := declarationParseVariables(t, "double (*elephant)[20];")
 	if vs == nil {
 		return
@@ -187,7 +187,7 @@ func TestDeclarationPointerToArray(t *testing.T) {
 	assert.Equal(t, "double", a.ElementType.GetBasicType().Name)
 }
 
-func TestDeclarationVarInitializationOrder(t *testing.T) {
+func Test_VarInitializationOrder(t *testing.T) {
 	runCode(t, `
 void main() {
     int x = 42;
@@ -199,10 +199,10 @@ void main() {
     y += 1;
     assertAreEqual(3201, y);
 }
-`, newTestMachineInfo())
+`, newTestMachineInfo(t))
 }
 
-func TestDeclarationFunctionNoArgName(t *testing.T) {
+func Test_FunctionNoArgName(t *testing.T) {
 	fs := declarationParseFunctions(t, "long int bat(int) { return 0; }")
 	if fs == nil || len(fs) == 0 {
 		return
@@ -215,7 +215,7 @@ func TestDeclarationFunctionNoArgName(t *testing.T) {
 	assert.Equal(t, "int", ft.ReturnType.GetBasicType().Name)
 }
 
-func TestDeclarationFunctionPointerReturn(t *testing.T) {
+func Test_FunctionPointerReturn(t *testing.T) {
 	fs := declarationParseFunctions(t, "char *wicket(void) {return 0;}")
 	if fs == nil || len(fs) == 0 {
 		return
@@ -227,14 +227,21 @@ func TestDeclarationFunctionPointerReturn(t *testing.T) {
 	assert.Equal(t, 0, len(f.GetFunctionType().Parameters()))
 }
 
-func TestDeclarationLongShortIntIsError(t *testing.T) {
-	mi := newTestMachineInfo()
+func Test_LongShortIntIsError(t *testing.T) {
+	mi := newTestMachineInfo(t)
 	code := "void main() { long short int x = 0; }"
 	fullCode := "void start() { __cinit(); main(); } " + code
+
 	report := NewReport(nil)
-	Compile(fullCode, mi, nil)
-	if len(report.Errors()) == 0 {
+	c := NewCCompiler(NewCompilerOptions(mi, report, []*Document{
+		NewDocument(DefaultCodePath, fullCode),
+	}))
+	exe := c.Compile()
+
+	errs := report.Errors()
+	if len(errs) == 0 {
 		_ = report
 		t.Skip("Compile did not produce errors (feature may not error-check yet)")
 	}
+	_ = exe
 }

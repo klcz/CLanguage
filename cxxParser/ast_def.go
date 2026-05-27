@@ -69,9 +69,9 @@ func (d *IdentifierDeclarator) String() string { return d.Name }
 // ── PointerDeclarator ────────────────────────────────────────────────────────
 
 type PointerDeclarator struct {
-	Pointer       *Pointer
+	Pointer         *Pointer
 	InnerDeclarator Declarator
-	StrongBinding bool
+	StrongBinding   bool
 }
 
 func NewPointerDeclarator(ptr *Pointer, inner Declarator) *PointerDeclarator {
@@ -267,14 +267,14 @@ func (s *ExpressionStatement) String() string {
 
 type Block struct {
 	StatementBase
-	Statements    []Statement
-	Variables     []*CompiledVariable
-	Typedefs      map[string]CType
-	Structures    map[string]*CStructType
-	Functions     []*CompiledFunction
-	Enums         map[string]*CEnumType
+	Statements     []Statement
+	Variables      []*CompiledVariable
+	Typedefs       map[string]CType
+	Structures     map[string]*CStructType
+	Functions      []*CompiledFunction
+	Enums          map[string]*CEnumType
 	InitStatements []Statement
-	Scope         VariableScope
+	Scope          VariableScope
 }
 
 func NewBlock(scope VariableScope) *Block {
@@ -381,11 +381,21 @@ func NewScopeResolutionExpression(left, right string) *ScopeResolutionExpression
 }
 
 func (e *ScopeResolutionExpression) GetEvaluatedCType(ec *EmitContext) CType {
+	rv := ec.TryResolveQualifiedFunction(e.TypeName, e.MemberName, nil)
+	if rv != nil {
+		return rv.VariableType
+	}
 	return CBasicTypeSignedInt
 }
 
 func (e *ScopeResolutionExpression) Emit(ec *EmitContext) {
-	ec.Emit(OpCodeLoadConstant, ValueOf(0))
+	rv := ec.TryResolveQualifiedFunction(e.TypeName, e.MemberName, nil)
+	if rv != nil {
+		rv.Emit(ec)
+	} else {
+		ec.GetReport().Error(103, fmt.Sprintf("'%s::%s' not found", e.TypeName, e.MemberName))
+		ec.Emit(OpCodeLoadConstant, ValueOf(0))
+	}
 }
 
 func (e *ScopeResolutionExpression) EmitPointer(ec *EmitContext) { defaultEmitPointer(ec) }
@@ -405,12 +415,12 @@ func (e *ScopeResolutionExpression) String() string {
 type RelationalOp int
 
 const (
-	RelationalOpLessThan          RelationalOp = 0
-	RelationalOpGreaterThan       RelationalOp = 1
-	RelationalOpLessThanOrEqual   RelationalOp = 2
+	RelationalOpLessThan           RelationalOp = 0
+	RelationalOpGreaterThan        RelationalOp = 1
+	RelationalOpLessThanOrEqual    RelationalOp = 2
 	RelationalOpGreaterThanOrEqual RelationalOp = 3
-	RelationalOpEquals            RelationalOp = 4
-	RelationalOpNotEquals         RelationalOp = 5
+	RelationalOpEquals             RelationalOp = 4
+	RelationalOpNotEquals          RelationalOp = 5
 )
 
 type RelationalExpression struct {
@@ -439,6 +449,8 @@ func (e *RelationalExpression) Emit(ec *EmitContext) {
 	ec.EmitCast(rightType, aType)
 
 	ioff := ec.GetInstructionOffset(aType)
+	// The comparison result is always CBasicTypeSignedInt, use its offset for Not opcodes
+	relIoff := ec.GetInstructionOffset(CBasicTypeSignedInt)
 	switch e.Op {
 	case RelationalOpLessThan:
 		ec.Emit(OpCodeLessThanInt8+OpCode(ioff), ValueOf(0))
@@ -446,15 +458,15 @@ func (e *RelationalExpression) Emit(ec *EmitContext) {
 		ec.Emit(OpCodeGreaterThanInt8+OpCode(ioff), ValueOf(0))
 	case RelationalOpLessThanOrEqual:
 		ec.Emit(OpCodeGreaterThanInt8+OpCode(ioff), ValueOf(0))
-		ec.Emit(OpCodeNotInt8+OpCode(ioff), ValueOf(0))
+		ec.Emit(OpCodeNotInt8+OpCode(relIoff), ValueOf(0))
 	case RelationalOpGreaterThanOrEqual:
 		ec.Emit(OpCodeLessThanInt8+OpCode(ioff), ValueOf(0))
-		ec.Emit(OpCodeNotInt8+OpCode(ioff), ValueOf(0))
+		ec.Emit(OpCodeNotInt8+OpCode(relIoff), ValueOf(0))
 	case RelationalOpEquals:
 		ec.Emit(OpCodeEqualToInt8+OpCode(ioff), ValueOf(0))
 	case RelationalOpNotEquals:
 		ec.Emit(OpCodeEqualToInt8+OpCode(ioff), ValueOf(0))
-		ec.Emit(OpCodeNotInt8+OpCode(ioff), ValueOf(0))
+		ec.Emit(OpCodeNotInt8+OpCode(relIoff), ValueOf(0))
 	}
 }
 
@@ -543,7 +555,7 @@ func (e *SequenceExpression) String() string {
 
 type IfStatement struct {
 	StatementBase
-	Condition  Expression
+	Condition     Expression
 	ThenStatement Statement
 	ElseStatement Statement
 }
@@ -558,10 +570,10 @@ func NewIfStatement(cond Expression, thenStmt Statement, location Location) *IfS
 
 func NewIfElseStatement(cond Expression, thenStmt, elseStmt Statement, location Location) *IfStatement {
 	return &IfStatement{
-		StatementBase:  StatementBase{Location: location},
-		Condition:      cond,
-		ThenStatement:  thenStmt,
-		ElseStatement:  elseStmt,
+		StatementBase: StatementBase{Location: location},
+		Condition:     cond,
+		ThenStatement: thenStmt,
+		ElseStatement: elseStmt,
 	}
 }
 

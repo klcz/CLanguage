@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestStructLayoutSimpleStructFieldOffsets(t *testing.T) {
+func Test_SimpleStructFieldOffsets(t *testing.T) {
 	servo := NewCStructType("Servo")
 	servo.Members = append(servo.Members, NewCStructField("pin", SignedInt))
 	servo.Members = append(servo.Members, NewCStructField("servoIndex", UnsignedChar))
@@ -26,7 +26,7 @@ func TestStructLayoutSimpleStructFieldOffsets(t *testing.T) {
 	assert.Equal(t, 5, layout.Field("lastMicroseconds").Offset)
 }
 
-func TestStructLayoutFieldAccessorNumValues(t *testing.T) {
+func Test_FieldAccessorNumValues(t *testing.T) {
 	s := NewCStructType("S")
 	five := 5
 	s.Members = append(s.Members, NewCStructField("x", SignedInt))
@@ -42,7 +42,7 @@ func TestStructLayoutFieldAccessorNumValues(t *testing.T) {
 	assert.Equal(t, 6, layout.Field("y").Offset)
 }
 
-func TestStructLayoutFieldAccessorGetSet(t *testing.T) {
+func Test_FieldAccessorGetSet(t *testing.T) {
 	s := NewCStructType("Point")
 	s.Members = append(s.Members, NewCStructField("x", SignedInt))
 	s.Members = append(s.Members, NewCStructField("y", SignedInt))
@@ -57,11 +57,11 @@ func TestStructLayoutFieldAccessorGetSet(t *testing.T) {
 	fx.Set(stack, basePtr, ValueOf(42))
 	fy.Set(stack, basePtr, ValueOf(99))
 
-	assert.Equal(t, int32(42), fx.Get(stack, basePtr).Int32Value)
-	assert.Equal(t, int32(99), fy.Get(stack, basePtr).Int32Value)
+	assert.Equal(t, int32(42), new(fx.Get(stack, basePtr)).Int32Value())
+	assert.Equal(t, int32(99), new(fy.Get(stack, basePtr)).Int32Value())
 }
 
-func TestStructLayoutFieldAccessorGetAddress(t *testing.T) {
+func Test_FieldAccessorGetAddress(t *testing.T) {
 	s := NewCStructType("S")
 	s.Members = append(s.Members, NewCStructField("a", SignedInt))
 	s.Members = append(s.Members, NewCStructField("b", SignedInt))
@@ -71,7 +71,7 @@ func TestStructLayoutFieldAccessorGetAddress(t *testing.T) {
 	assert.Equal(t, 11, layout.Field("b").GetAddress(10))
 }
 
-func TestStructLayoutNestedStructFieldLayout(t *testing.T) {
+func Test_NestedStructFieldLayout(t *testing.T) {
 	inner := NewCStructType("Inner")
 	inner.Members = append(inner.Members, NewCStructField("a", SignedInt))
 	inner.Members = append(inner.Members, NewCStructField("b", SignedInt))
@@ -95,7 +95,7 @@ func TestStructLayoutNestedStructFieldLayout(t *testing.T) {
 	assert.Equal(t, 1, nestedLayout.Field("b").Offset)
 }
 
-func TestStructLayoutNestedStructReadWrite(t *testing.T) {
+func Test_NestedStructReadWrite(t *testing.T) {
 	inner := NewCStructType("Inner")
 	inner.Members = append(inner.Members, NewCStructField("a", SignedInt))
 	inner.Members = append(inner.Members, NewCStructField("b", SignedInt))
@@ -118,16 +118,16 @@ func TestStructLayoutNestedStructReadWrite(t *testing.T) {
 	nestedLayout.Field("b").Set(stack, nestedPtr, ValueOf(30))
 	outerLayout.Field("y").Set(stack, basePtr, ValueOf(40))
 
-	assert.Equal(t, int32(10), stack[0].Int32Value)
-	assert.Equal(t, int32(20), stack[1].Int32Value)
-	assert.Equal(t, int32(30), stack[2].Int32Value)
-	assert.Equal(t, int32(40), stack[3].Int32Value)
+	assert.Equal(t, int32(10), stack[0].Int32Value())
+	assert.Equal(t, int32(20), stack[1].Int32Value())
+	assert.Equal(t, int32(30), stack[2].Int32Value())
+	assert.Equal(t, int32(40), stack[3].Int32Value())
 
-	assert.Equal(t, int32(20), nestedLayout.Field("a").Get(stack, nestedPtr).Int32Value)
-	assert.Equal(t, int32(30), nestedLayout.Field("b").Get(stack, nestedPtr).Int32Value)
+	assert.Equal(t, int32(20), new(nestedLayout.Field("a").Get(stack, nestedPtr)).Int32Value())
+	assert.Equal(t, int32(30), new(nestedLayout.Field("b").Get(stack, nestedPtr)).Int32Value())
 }
 
-func TestStructLayoutFieldThrowsForUnknownField(t *testing.T) {
+func Test_FieldThrowsForUnknownField(t *testing.T) {
 	s := NewCStructType("S")
 	s.Members = append(s.Members, NewCStructField("x", SignedInt))
 
@@ -135,7 +135,7 @@ func TestStructLayoutFieldThrowsForUnknownField(t *testing.T) {
 	assert.Panics(t, func() { layout.Field("nonexistent") })
 }
 
-func TestStructLayoutFieldLayoutThrowsForNonStructField(t *testing.T) {
+func Test_FieldLayoutThrowsForNonStructField(t *testing.T) {
 	s := NewCStructType("S")
 	s.Members = append(s.Members, NewCStructField("x", SignedInt))
 
@@ -143,7 +143,7 @@ func TestStructLayoutFieldLayoutThrowsForNonStructField(t *testing.T) {
 	assert.Panics(t, func() { layout.FieldLayout("x") })
 }
 
-func TestStructLayoutPolymorphicStructFieldOffsetSkipsVptr(t *testing.T) {
+func Test_PolymorphicStructFieldOffsetSkipsVptr(t *testing.T) {
 	s := NewCStructType("Base")
 	s.Members = append(s.Members, NewCStructField("x", SignedInt))
 	method := NewCStructMethod("foo", NewCFunctionType(SignedInt, true, s))
@@ -155,7 +155,7 @@ func TestStructLayoutPolymorphicStructFieldOffsetSkipsVptr(t *testing.T) {
 	assert.Equal(t, 1, layout.Field("x").Offset)
 }
 
-func TestStructLayoutDerivedStructFieldOffsetIncludesBase(t *testing.T) {
+func Test_DerivedStructFieldOffsetIncludesBase(t *testing.T) {
 	baseType := NewCStructType("Base")
 	baseType.Members = append(baseType.Members, NewCStructField("x", SignedInt))
 	method := NewCStructMethod("foo", NewCFunctionType(SignedInt, true, baseType))
@@ -173,7 +173,7 @@ func TestStructLayoutDerivedStructFieldOffsetIncludesBase(t *testing.T) {
 	assert.Equal(t, 2, layout.Field("y").Offset)
 }
 
-func TestStructLayoutNonPolymorphicDerivedFieldOffset(t *testing.T) {
+func Test_NonPolymorphicDerivedFieldOffset(t *testing.T) {
 	baseType := NewCStructType("Base")
 	baseType.Members = append(baseType.Members, NewCStructField("x", SignedInt))
 
@@ -186,7 +186,7 @@ func TestStructLayoutNonPolymorphicDerivedFieldOffset(t *testing.T) {
 	assert.Equal(t, 1, layout.Field("y").Offset)
 }
 
-func TestStructLayoutMatchesCompiledOffsets(t *testing.T) {
+func Test_MatchesCompiledOffsets(t *testing.T) {
 	exe := compileCode(t, `
 struct Sensor {
     int id;
@@ -202,7 +202,7 @@ void main() {
     assertFloatsAreEqual(36.5f, s.temperature);
     assertAreEqual(2, s.status);
 }
-`, newArduinoTestMachineInfo())
+`, newArduinoTestMachineInfo(t))
 	if exe == nil {
 		return
 	}
@@ -226,6 +226,6 @@ void main() {
 	assert.Equal(t, 2, layout.Field("status").Offset)
 }
 
-func TestStructLayoutConstructorThrowsOnNull(t *testing.T) {
+func Test_ConstructorThrowsOnNull(t *testing.T) {
 	assert.Panics(t, func() { NewStructLayout(nil) })
 }

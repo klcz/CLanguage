@@ -27,7 +27,7 @@ func vtableMakeMethodSig(declaringType *CStructType) *CFunctionType {
 	return NewCFunctionType(SignedInt, true, declaringType)
 }
 
-func TestVTableNonPolymorphicStructIsNotPolymorphic(t *testing.T) {
+func Test_NonPolymorphicStructIsNotPolymorphic(t *testing.T) {
 	s := NewCStructType("Plain")
 	s.Members = append(s.Members, vtableMakeField("x", SignedInt))
 	s.Members = append(s.Members, vtableMakeField("y", SignedInt))
@@ -35,14 +35,14 @@ func TestVTableNonPolymorphicStructIsNotPolymorphic(t *testing.T) {
 	assert.False(t, s.HasVTable())
 }
 
-func TestVTableNonPolymorphicNumValuesUnchanged(t *testing.T) {
+func Test_NonPolymorphicNumValuesUnchanged(t *testing.T) {
 	s := NewCStructType("Plain")
 	s.Members = append(s.Members, vtableMakeField("x", SignedInt))
 	s.Members = append(s.Members, vtableMakeField("y", SignedInt))
 	assert.Equal(t, 2, s.NumValues())
 }
 
-func TestVTableNonPolymorphicFieldOffsetUnchanged(t *testing.T) {
+func Test_NonPolymorphicFieldOffsetUnchanged(t *testing.T) {
 	s := NewCStructType("Plain")
 	fx := vtableMakeField("x", SignedInt)
 	fy := vtableMakeField("y", SignedInt)
@@ -53,7 +53,7 @@ func TestVTableNonPolymorphicFieldOffsetUnchanged(t *testing.T) {
 	assert.Equal(t, 1, s.GetFieldValueOffset(fy, ec))
 }
 
-func TestVTableTypeWithVTableIsPolymorphic(t *testing.T) {
+func Test_TypeWithVTableIsPolymorphic(t *testing.T) {
 	s := NewCStructType("Base")
 	method := vtableMakeVirtualMethod("foo", vtableMakeMethodSig(s))
 	s.Members = append(s.Members, method)
@@ -62,7 +62,7 @@ func TestVTableTypeWithVTableIsPolymorphic(t *testing.T) {
 	assert.True(t, s.IsPolymorphic())
 }
 
-func TestVTableDerivedFromPolymorphicIsPolymorphic(t *testing.T) {
+func Test_DerivedFromPolymorphicIsPolymorphic(t *testing.T) {
 	baseType := NewCStructType("Base")
 	method := vtableMakeVirtualMethod("foo", vtableMakeMethodSig(baseType))
 	baseType.Members = append(baseType.Members, method)
@@ -76,7 +76,7 @@ func TestVTableDerivedFromPolymorphicIsPolymorphic(t *testing.T) {
 	assert.True(t, derived.IsPolymorphic())
 }
 
-func TestVTableNonVirtualDerivedIsNotPolymorphic(t *testing.T) {
+func Test_NonVirtualDerivedIsNotPolymorphic(t *testing.T) {
 	baseType := NewCStructType("Base")
 	baseType.Members = append(baseType.Members, vtableMakeField("x", SignedInt))
 
@@ -88,7 +88,7 @@ func TestVTableNonVirtualDerivedIsNotPolymorphic(t *testing.T) {
 	assert.Nil(t, baseType.VTable_)
 }
 
-func TestVTablePolymorphicNumValuesIncludesVptr(t *testing.T) {
+func Test_PolymorphicNumValuesIncludesVptr(t *testing.T) {
 	s := NewCStructType("Base")
 	s.Members = append(s.Members, vtableMakeField("x", SignedInt))
 	method := vtableMakeVirtualMethod("foo", vtableMakeMethodSig(s))
@@ -98,7 +98,7 @@ func TestVTablePolymorphicNumValuesIncludesVptr(t *testing.T) {
 	assert.Equal(t, 2, s.NumValues())
 }
 
-func TestVTableDerivedNumValuesIncludesBaseFields(t *testing.T) {
+func Test_DerivedNumValuesIncludesBaseFields(t *testing.T) {
 	baseType := NewCStructType("Base")
 	baseType.Members = append(baseType.Members, vtableMakeField("x", SignedInt))
 	method := vtableMakeVirtualMethod("foo", vtableMakeMethodSig(baseType))
@@ -113,7 +113,7 @@ func TestVTableDerivedNumValuesIncludesBaseFields(t *testing.T) {
 	assert.Equal(t, 3, derived.NumValues())
 }
 
-func TestVTablePolymorphicFieldOffsetSkipsVptr(t *testing.T) {
+func Test_PolymorphicFieldOffsetSkipsVptr(t *testing.T) {
 	s := NewCStructType("Base")
 	fx := vtableMakeField("x", SignedInt)
 	s.Members = append(s.Members, fx)
@@ -125,7 +125,7 @@ func TestVTablePolymorphicFieldOffsetSkipsVptr(t *testing.T) {
 	assert.Equal(t, 1, s.GetFieldValueOffset(fx, ec))
 }
 
-func TestVTableDerivedFieldOffsetIncludesBaseFields(t *testing.T) {
+func Test_DerivedFieldOffsetIncludesBaseFields(t *testing.T) {
 	baseType := NewCStructType("Base")
 	fx := vtableMakeField("x", SignedInt)
 	baseType.Members = append(baseType.Members, fx)
@@ -144,7 +144,7 @@ func TestVTableDerivedFieldOffsetIncludesBaseFields(t *testing.T) {
 	assert.Equal(t, 2, derived.GetFieldValueOffset(fy, ec))
 }
 
-func TestVTableBuildVTableCreatesSlots(t *testing.T) {
+func Test_BuildVTableCreatesSlots(t *testing.T) {
 	s := NewCStructType("Base")
 	sig := vtableMakeMethodSig(s)
 	m1 := vtableMakeVirtualMethod("foo", sig)
@@ -161,7 +161,7 @@ func TestVTableBuildVTableCreatesSlots(t *testing.T) {
 	assert.Equal(t, 1, m2.VTableSlotIndex)
 }
 
-func TestVTableBuildVTableInheritsBaseSlots(t *testing.T) {
+func Test_BuildVTableInheritsBaseSlots(t *testing.T) {
 	baseType := NewCStructType("Base")
 	baseSig := vtableMakeMethodSig(baseType)
 	baseFoo := vtableMakeVirtualMethod("foo", baseSig)
@@ -183,7 +183,7 @@ func TestVTableBuildVTableInheritsBaseSlots(t *testing.T) {
 	assert.Equal(t, 1, derived.VTable_.Entries[1].SlotIndex)
 }
 
-func TestVTableBuildVTableOverridesBaseSlot(t *testing.T) {
+func Test_BuildVTableOverridesBaseSlot(t *testing.T) {
 	baseType := NewCStructType("Base")
 	baseSig := vtableMakeMethodSig(baseType)
 	baseFoo := vtableMakeVirtualMethod("foo", baseSig)
@@ -204,7 +204,7 @@ func TestVTableBuildVTableOverridesBaseSlot(t *testing.T) {
 	assert.Equal(t, 0, derivedFoo.VTableSlotIndex)
 }
 
-func TestVTableBuildVTableExplicitOverride(t *testing.T) {
+func Test_BuildVTableExplicitOverride(t *testing.T) {
 	baseType := NewCStructType("Base")
 	baseSig := vtableMakeMethodSig(baseType)
 	baseFoo := vtableMakeVirtualMethod("foo", baseSig)
@@ -223,7 +223,7 @@ func TestVTableBuildVTableExplicitOverride(t *testing.T) {
 	assert.Equal(t, 0, derivedFoo.VTableSlotIndex)
 }
 
-func TestVTableBuildVTableWithNoVirtualMethodsProducesNull(t *testing.T) {
+func Test_BuildVTableWithNoVirtualMethodsProducesNull(t *testing.T) {
 	s := NewCStructType("Plain")
 	s.Members = append(s.Members, vtableMakeField("x", SignedInt))
 	s.BuildVTable()
@@ -232,7 +232,7 @@ func TestVTableBuildVTableWithNoVirtualMethodsProducesNull(t *testing.T) {
 	assert.False(t, s.IsPolymorphic())
 }
 
-func TestVTableGetOwnFieldsNumValuesExcludesMethods(t *testing.T) {
+func Test_GetOwnFieldsNumValuesExcludesMethods(t *testing.T) {
 	s := NewCStructType("S")
 	s.Members = append(s.Members, vtableMakeField("x", SignedInt))
 	s.Members = append(s.Members, NewCStructMethod("foo", vtableMakeMethodSig(s)))
@@ -240,7 +240,7 @@ func TestVTableGetOwnFieldsNumValuesExcludesMethods(t *testing.T) {
 	assert.Equal(t, 2, s.GetOwnFieldsNumValues())
 }
 
-func TestVTableCStructMethodDefaultFlags(t *testing.T) {
+func Test_CStructMethodDefaultFlags(t *testing.T) {
 	method := NewCStructMethod("foo", nil)
 	assert.False(t, method.IsVirtual)
 	assert.False(t, method.IsOverride)
@@ -248,19 +248,19 @@ func TestVTableCStructMethodDefaultFlags(t *testing.T) {
 	assert.Equal(t, -1, method.VTableSlotIndex)
 }
 
-func TestVTableBaseTypeDefaultsToNull(t *testing.T) {
+func Test_BaseTypeDefaultsToNull(t *testing.T) {
 	s := NewCStructType("S")
 	assert.Nil(t, s.BaseType)
 }
 
-func TestVTableBaseTypeCanBeSet(t *testing.T) {
+func Test_BaseTypeCanBeSet(t *testing.T) {
 	baseType := NewCStructType("Base")
 	derived := NewCStructType("Derived")
 	derived.BaseType = baseType
 	assert.Same(t, baseType, derived.BaseType)
 }
 
-func TestVTableNonPolymorphicBaseNumValues(t *testing.T) {
+func Test_NonPolymorphicBaseNumValues(t *testing.T) {
 	baseType := NewCStructType("Base")
 	baseType.Members = append(baseType.Members, vtableMakeField("x", SignedInt))
 
@@ -271,7 +271,7 @@ func TestVTableNonPolymorphicBaseNumValues(t *testing.T) {
 	assert.Equal(t, 2, derived.NumValues())
 }
 
-func TestVTableNonPolymorphicBaseFieldOffset(t *testing.T) {
+func Test_NonPolymorphicBaseFieldOffset(t *testing.T) {
 	baseType := NewCStructType("Base")
 	fx := vtableMakeField("x", SignedInt)
 	baseType.Members = append(baseType.Members, fx)
@@ -286,7 +286,7 @@ func TestVTableNonPolymorphicBaseFieldOffset(t *testing.T) {
 	assert.Equal(t, 1, derived.GetFieldValueOffset(fy, ec))
 }
 
-func TestVTableVTableEntryToString(t *testing.T) {
+func Test_VTableEntryToString(t *testing.T) {
 	s := NewCStructType("Base")
 	sig := vtableMakeMethodSig(s)
 	entry := NewVTableEntry(0, "foo", sig, s)

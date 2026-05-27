@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestArduinoSizes(t *testing.T) {
+func Test_ArduinoSizes(t *testing.T) {
 	mi := NewMachineInfo()
 	mi.IntSize = 2
 	mi.PointerSize = 2
@@ -45,7 +45,7 @@ func TestArduinoSizes(t *testing.T) {
 	}
 }
 
-func TestArduinoBlink(t *testing.T) {
+func Test_ArduinoBlink(t *testing.T) {
 	code := `
 void setup() {
   pinMode(13, 1);
@@ -56,7 +56,7 @@ void loop() {
   digitalWrite(13, 0);
   delay(1000);
 }`
-	mi := newArduinoTestMachineInfo()
+	mi := newArduinoTestMachineInfo(t)
 	fullCode := code + "\n\nvoid main() { __cinit(); setup(); while(1){loop();}}"
 	exe := Compile(fullCode, mi, nil)
 	if exe == nil {
@@ -72,7 +72,7 @@ void loop() {
 	i.Run()
 }
 
-func TestArduinoDigitalRead(t *testing.T) {
+func Test_ArduinoDigitalRead(t *testing.T) {
 	code := `
 void setup() {
   pinMode(2, 0);
@@ -82,7 +82,7 @@ void loop() {
   int sensorValue = digitalRead(2);
   digitalWrite(3, sensorValue);
 }`
-	mi := newArduinoTestMachineInfo()
+	mi := newArduinoTestMachineInfo(t)
 	fullCode := code + "\n\nvoid main() { __cinit(); setup(); while(1){loop();}}"
 	exe := Compile(fullCode, mi, nil)
 	if exe == nil {
@@ -98,7 +98,7 @@ void loop() {
 	i.Run()
 }
 
-func TestArduinoFade(t *testing.T) {
+func Test_ArduinoFade(t *testing.T) {
 	code := `
 int brightness = 0;
 int fadeAmount = 5;
@@ -113,7 +113,7 @@ void loop() {
   }
   delay(30);
 }`
-	mi := newArduinoTestMachineInfo()
+	mi := newArduinoTestMachineInfo(t)
 	fullCode := code + "\n\nvoid main() { __cinit(); setup(); while(1){loop();}}"
 	exe := Compile(fullCode, mi, nil)
 	if exe == nil {

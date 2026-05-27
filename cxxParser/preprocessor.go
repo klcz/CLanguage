@@ -50,7 +50,7 @@ func (pi *ParserInput) tryRegisterStructName() {
 }
 
 func (pi *ParserInput) token() int {
-	return pi.CurrentToken().Kind
+	return int(pi.CurrentToken().Kind)
 }
 
 func (pi *ParserInput) value() interface{} {
@@ -74,6 +74,19 @@ func (pi *ParserInput) CurrentToken() Token {
 
 func (pi *ParserInput) AddTypedef(declaredIdentifier string) {
 	pi.typedefs[declaredIdentifier] = true
+}
+
+func (pi *ParserInput) DumpTokens() string {
+	s := ""
+	for _, token := range pi.Tokens {
+		if token.Kind >= 256 {
+			s += fmt.Sprintf(`{"%v": %s}`, token.Value,
+				strings.ReplaceAll(token.Kind.String(), "TokenKind", "")) + "\n"
+		} else {
+			s += fmt.Sprintf(`{"%s"}`, string([]byte{byte(token.Kind)})) + "\n"
+		}
+	}
+	return s
 }
 
 // ============================================================================
@@ -325,13 +338,16 @@ func (p *Preprocessor) preprocessIteration(defines map[string]*Define, include P
 
 				if isTrue {
 					if elseStartIndex >= eol {
-						insertTokensSlice = (*tokens)[eol:elseStartIndex]
+						insertTokensSlice = make([]Token, elseStartIndex-eol)
+						copy(insertTokensSlice, (*tokens)[eol:elseStartIndex])
 					} else {
-						insertTokensSlice = (*tokens)[eol:endifStartIndex]
+						insertTokensSlice = make([]Token, endifStartIndex-eol)
+						copy(insertTokensSlice, (*tokens)[eol:endifStartIndex])
 					}
 				} else {
 					if elseEndIndex >= eol {
-						insertTokensSlice = (*tokens)[elseEndIndex:endifStartIndex]
+						insertTokensSlice = make([]Token, endifStartIndex-elseEndIndex)
+						copy(insertTokensSlice, (*tokens)[elseEndIndex:endifStartIndex])
 					}
 				}
 				eol = endifEndIndex
@@ -438,7 +454,7 @@ func evalIfCondition(defines map[string]*Define, tokens []Token) bool {
 	}
 	context := NewPreprocessorContext(report, defines, expressions)
 	value := expression.EvalConstant(context.EmitContext)
-	return value.Int32Value != 0
+	return value.Int32Value() != 0
 }
 
 // PreprocessorContext — minimal EmitContext override for #if evaluation
@@ -451,11 +467,13 @@ type PreprocessorContext struct {
 func NewPreprocessorContext(report *Report, defines map[string]*Define, expressions map[string]Expression) *PreprocessorContext {
 	mi := NewMachineInfo()
 	ec := NewEmitContext(mi, report, nil, nil)
-	return &PreprocessorContext{
+	pc := &PreprocessorContext{
 		EmitContext: ec,
 		defines:     defines,
 		expressions: expressions,
 	}
+	ec.self = pc
+	return pc
 }
 
 func (pc *PreprocessorContext) TryResolveVariable(name string, argTypes []CType) *ResolvedVariable {

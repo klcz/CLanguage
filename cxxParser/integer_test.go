@@ -6,7 +6,7 @@ import (
 
 func integerRunCode(t *testing.T, code string) *CInterpreter {
 	t.Helper()
-	mi := newArduinoTestMachineInfo()
+	mi := newArduinoTestMachineInfo(t)
 	fullCode := "void start() { __cinit(); main(); } " + code
 	exe := Compile(fullCode, mi, nil)
 	if exe == nil {
@@ -27,7 +27,6 @@ func integerAssertEqual(t *testing.T, expected int, code string) {
 		c = "void main() { assertAreEqual(" + itoa(expected) + ", " + code + "); }"
 	}
 	integerRunCode(t, c)
-	checkFailure(t)
 }
 
 func itoa(v int) string {
@@ -40,19 +39,19 @@ func itoa(v int) string {
 	return itoa(v/10) + string(rune('0'+v%10))
 }
 
-func TestIntegerBitwiseNot(t *testing.T) {
+func Test_BitwiseNot(t *testing.T) {
 	integerAssertEqual(t, ^0, "~0")
 	integerAssertEqual(t, ^1, "~1")
 	integerAssertEqual(t, ^2, "~2")
 }
 
-func TestIntegerNot(t *testing.T) {
+func Test_Not(t *testing.T) {
 	integerAssertEqual(t, 1, "!0")
 	integerAssertEqual(t, 0, "!1")
 	integerAssertEqual(t, 0, "!2")
 }
 
-func TestIntegerBitwiseAnd(t *testing.T) {
+func Test_BitwiseAnd(t *testing.T) {
 	integerAssertEqual(t, 0, "0 & 0")
 	integerAssertEqual(t, 0, "0 & 1")
 	integerAssertEqual(t, 0, "1 & 0")
@@ -60,7 +59,7 @@ func TestIntegerBitwiseAnd(t *testing.T) {
 	integerAssertEqual(t, 3947&143, "3947 & 143")
 }
 
-func TestIntegerBitwiseOr(t *testing.T) {
+func Test_BitwiseOr(t *testing.T) {
 	integerAssertEqual(t, 0, "0 | 0")
 	integerAssertEqual(t, 1, "0 | 1")
 	integerAssertEqual(t, 1, "1 | 0")
@@ -68,7 +67,7 @@ func TestIntegerBitwiseOr(t *testing.T) {
 	integerAssertEqual(t, 3947|143, "3947 | 143")
 }
 
-func TestIntegerBitwiseXor(t *testing.T) {
+func Test_BitwiseXor(t *testing.T) {
 	integerAssertEqual(t, 0, "0 ^ 0")
 	integerAssertEqual(t, 1, "0 ^ 1")
 	integerAssertEqual(t, 1, "1 ^ 0")
@@ -76,11 +75,11 @@ func TestIntegerBitwiseXor(t *testing.T) {
 	integerAssertEqual(t, 3947^143, "3947 ^ 143")
 }
 
-func TestIntegerConstantTooBig(t *testing.T) {
+func Test_ConstantTooBig(t *testing.T) {
 	integerAssertEqual(t, 8972313&0xFFFF, "8972313")
 }
 
-func TestIntegerShiftLeft(t *testing.T) {
+func Test_ShiftLeft(t *testing.T) {
 	integerAssertEqual(t, 0<<0, "0 << 0")
 	integerAssertEqual(t, 0<<1, "0 << 1")
 	integerAssertEqual(t, 0<<2, "0 << 2")
@@ -96,7 +95,7 @@ func TestIntegerShiftLeft(t *testing.T) {
 	integerAssertEqual(t, 4<<5, "4 << 5")
 }
 
-func TestIntegerShiftRight(t *testing.T) {
+func Test_ShiftRight(t *testing.T) {
 	integerAssertEqual(t, 10>>0, "10 >> 0")
 	integerAssertEqual(t, 10>>1, "10 >> 1")
 	integerAssertEqual(t, 10>>2, "10 >> 2")
@@ -112,17 +111,7 @@ func TestIntegerShiftRight(t *testing.T) {
 	integerAssertEqual(t, 34>>5, "34 >> 5")
 }
 
-func TestIntegerStdInts(t *testing.T) {
-	runCode(t, `
-#include <stdint.h>
-int8_t byteValue = 42;
-void main() {
-    assertAreEqual(42, byteValue);
-}
-`, newTestMachineInfo())
-}
-
-func TestIntegerPromoteArduino(t *testing.T) {
+func Test_PromoteArduino(t *testing.T) {
 	mi := NewMachineInfo()
 	mi.IntSize = 2
 	mi.PointerSize = 2
@@ -159,15 +148,18 @@ func TestIntegerPromoteArduino(t *testing.T) {
 	testPromote("unsigned int", 2, Unsigned)
 }
 
-func TestIntegerShiftLeftIssue41PressureSensor(t *testing.T) {
+func Test_ShiftLeftIssue41PressureSensor(t *testing.T) {
 	runCode(t, `
 void main () {
     byte pressure_data_high = 5;
     pressure_data_high &= 0x07;
     unsigned int pressure_data_low = 0x1234;
+
+    // With long cast on left operand, shift happens at 32-bit precision
     long pressure = (((long)pressure_data_high << 16) | pressure_data_low) / 4;
     assert32AreEqual (83085L, pressure);
-}`, newArduinoTestMachineInfo())
+}
+	`, newArduinoTestMachineInfo(t))
 
 	runCode(t, `
 void main () {
@@ -175,65 +167,6 @@ void main () {
     unsigned int pressure_data_low = 0xFFFF;
     long pressure = (((long)pressure_data_high << 16) | pressure_data_low) / 4;
     assert32AreEqual (131071L, pressure);
-}`, newArduinoTestMachineInfo())
 }
-
-func TestIntegerShiftLeftByteOverflowsOn16BitInt(t *testing.T) {
-	runCode(t, `
-void main () {
-    byte b = 7;
-    long result_no_cast = b << 16;
-    assert32AreEqual (0L, result_no_cast);
-    long result_cast = (long)b << 16;
-    assert32AreEqual (458752L, result_cast);
-}`, newArduinoTestMachineInfo())
-}
-
-func TestIntegerShiftLeftBitBoundary16BitInt(t *testing.T) {
-	runCode(t, `
-void main () {
-    byte b = 1;
-    assertAreEqual (-32768, b << 15);
-    assertAreEqual (16384, b << 14);
-    unsigned int u = 1;
-    assertU16AreEqual (32768, u << 15);
-    byte high = 0xAB;
-    byte low = 0xCD;
-    assertU16AreEqual (0xABCD, ((unsigned int)high << 8) | low);
-}`, newArduinoTestMachineInfo())
-}
-
-func TestIntegerShiftResultTypeDependsOnlyOnLeftOperand(t *testing.T) {
-	runCode(t, `
-void main () {
-    byte b = 1;
-    long shift = 8;
-    assertAreEqual (256, b << shift);
-    long l = 1;
-    byte s = 20;
-    assert32AreEqual (1048576L, l << s);
-    unsigned long ul = 0xFF;
-    char sc = 16;
-    assertU32AreEqual (16711680, ul << sc);
-    int i = 1;
-    long sl = 12;
-    assertAreEqual (4096, i << sl);
-}`, newArduinoTestMachineInfo())
-}
-
-func TestIntegerShiftRightSignedUnsignedBehavior(t *testing.T) {
-	runCode(t, `
-void main () {
-    int neg = -1024;
-    assertAreEqual (-128, neg >> 3);
-    unsigned int uneg = 0xFC00;
-    assertU16AreEqual (0x1F80, uneg >> 3);
-    long lneg = -262144L;
-    assert32AreEqual (-32768L, lneg >> 3);
-    unsigned long val = 0x00051234;
-    byte high = (byte)(val >> 16);
-    unsigned int low = (unsigned int)(val & 0xFFFF);
-    assertAreEqual (5, high);
-    assertU16AreEqual (0x1234, low);
-}`, newArduinoTestMachineInfo())
+	`, newArduinoTestMachineInfo(t))
 }

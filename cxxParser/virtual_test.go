@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestVirtualBaseWithVirtualFunction(t *testing.T) {
+func Test_BaseWithVirtualFunction(t *testing.T) {
 	runCode(t, `
 class B {
 public:
@@ -19,10 +19,10 @@ void main()
     B b;
     assertAreEqual(42, b.f());
 }
-`, newArduinoTestMachineInfo())
+`, newArduinoTestMachineInfo(t))
 }
 
-func TestVirtualParseVirtualMethodDeclaration(t *testing.T) {
+func Test_ParseVirtualMethodDeclaration(t *testing.T) {
 	tu := parseCode(t, `
 class B {
     virtual int f();
@@ -32,7 +32,7 @@ void main() {}
 	assert.NotNil(t, tu)
 }
 
-func TestVirtualParsePureVirtualMethod(t *testing.T) {
+func Test_ParsePureVirtualMethod(t *testing.T) {
 	tu := parseCode(t, `
 class B {
     virtual int f() = 0;
@@ -42,7 +42,7 @@ void main() {}
 	assert.NotNil(t, tu)
 }
 
-func TestVirtualParseInheritancePublic(t *testing.T) {
+func Test_ParseInheritancePublic(t *testing.T) {
 	tu := parseCode(t, `
 class A {
     int x;
@@ -55,7 +55,7 @@ void main() {}
 	assert.NotNil(t, tu)
 }
 
-func TestVirtualVirtualCallOnBaseObject(t *testing.T) {
+func Test_VirtualCallOnBaseObject(t *testing.T) {
 	runCode(t, `
 class B {
 public:
@@ -68,10 +68,10 @@ void main() {
     b.x = 10;
     assertAreEqual(42, b.f());
 }
-`, newArduinoTestMachineInfo())
+`, newArduinoTestMachineInfo(t))
 }
 
-func TestVirtualVirtualCallDispatchesToDerived(t *testing.T) {
+func Test_VirtualCallDispatchesToDerived(t *testing.T) {
 	runCode(t, `
 class A {
 public:
@@ -88,10 +88,10 @@ void main() {
     B b;
     assertAreEqual(2, b.f());
 }
-`, newArduinoTestMachineInfo())
+`, newArduinoTestMachineInfo(t))
 }
 
-func TestVirtualVirtualCallInheritedMethodNotOverridden(t *testing.T) {
+func Test_VirtualCallInheritedMethodNotOverridden(t *testing.T) {
 	runCode(t, `
 class A {
 public:
@@ -110,10 +110,10 @@ void main() {
     assertAreEqual(100, b.f());
     assertAreEqual(20, b.g());
 }
-`, newArduinoTestMachineInfo())
+`, newArduinoTestMachineInfo(t))
 }
 
-func TestVirtualThreeLevelInheritanceChain(t *testing.T) {
+func Test_ThreeLevelInheritanceChain(t *testing.T) {
 	runCode(t, `
 class A {
 public:
@@ -138,10 +138,10 @@ void main() {
     assertAreEqual(2, b.f());
     assertAreEqual(3, c.f());
 }
-`, newArduinoTestMachineInfo())
+`, newArduinoTestMachineInfo(t))
 }
 
-func TestVirtualVirtualCallWithFieldAccess(t *testing.T) {
+func Test_VirtualCallWithFieldAccess(t *testing.T) {
 	runCode(t, `
 class A {
 public:
@@ -162,10 +162,10 @@ void main() {
     b.x = 5;
     assertAreEqual(105, b.getX());
 }
-`, newArduinoTestMachineInfo())
+`, newArduinoTestMachineInfo(t))
 }
 
-func TestVirtualPolymorphismThroughBasePointer(t *testing.T) {
+func Test_PolymorphismThroughBasePointer(t *testing.T) {
 	runCode(t, `
 class Base {
 public:
@@ -182,10 +182,10 @@ void main() {
     Base* b = &d;
     assertAreEqual(2, b->value());
 }
-`, newArduinoTestMachineInfo())
+`, newArduinoTestMachineInfo(t))
 }
 
-func TestVirtualThreeLevelInheritanceViaBasePointer(t *testing.T) {
+func Test_ThreeLevelInheritanceViaBasePointer(t *testing.T) {
 	runCode(t, `
 class A {
 public:
@@ -207,10 +207,10 @@ void main() {
     A* a = &c;
     assertAreEqual(3, a->f());
 }
-`, newArduinoTestMachineInfo())
+`, newArduinoTestMachineInfo(t))
 }
 
-func TestVirtualPartialOverrideViaBasePointer(t *testing.T) {
+func Test_PartialOverrideViaBasePointer(t *testing.T) {
 	runCode(t, `
 class Base {
 public:
@@ -230,10 +230,10 @@ void main() {
     assertAreEqual(10, b->f());
     assertAreEqual(2, b->g());
 }
-`, newArduinoTestMachineInfo())
+`, newArduinoTestMachineInfo(t))
 }
 
-func TestVirtualMultipleVirtualMethodsViaBasePointer(t *testing.T) {
+func Test_MultipleVirtualMethodsViaBasePointer(t *testing.T) {
 	runCode(t, `
 class Shape {
 public:
@@ -259,10 +259,10 @@ void main() {
     assertAreEqual(12, s->area());
     assertAreEqual(14, s->perimeter());
 }
-`, newArduinoTestMachineInfo())
+`, newArduinoTestMachineInfo(t))
 }
 
-func TestVirtualNonVirtualStructFieldAccess(t *testing.T) {
+func Test_NonVirtualStructFieldAccess(t *testing.T) {
 	runCode(t, `
 struct Point {
     int x;
@@ -275,11 +275,11 @@ void main() {
     assertAreEqual(3, p.x);
     assertAreEqual(4, p.y);
 }
-`, newArduinoTestMachineInfo())
+`, newArduinoTestMachineInfo(t))
 }
 
-func TestVirtualNonVirtualInteropUnchanged(t *testing.T) {
-	mi := newTestMachineInfo()
+func Test_NonVirtualInteropUnchanged(t *testing.T) {
+	mi := newTestMachineInfo(t)
 	mi.AddInternalFunction("void store(int x)", func(state *CInterpreter) {})
 	mi.AddInternalFunction("int load()", func(state *CInterpreter) {
 		state.Push(ValueOf(42))
@@ -287,7 +287,7 @@ func TestVirtualNonVirtualInteropUnchanged(t *testing.T) {
 	runCode(t, `void main() { assertAreEqual(42, load()); }`, mi)
 }
 
-func TestVirtualNonVirtualGlobalStructLayoutUnchanged(t *testing.T) {
+func Test_NonVirtualGlobalStructLayoutUnchanged(t *testing.T) {
 	exe := compileCode(t, `
 struct Vec2 {
     int x;
@@ -300,7 +300,7 @@ void main() {
     assertAreEqual(7, v.x);
     assertAreEqual(8, v.y);
 }
-`, newArduinoTestMachineInfo())
+`, newArduinoTestMachineInfo(t))
 	if exe == nil {
 		return
 	}
@@ -322,7 +322,7 @@ void main() {
 	assert.Equal(t, 2, vType.NumValues(), "Non-polymorphic struct should have 2 value slots (x, y)")
 }
 
-func TestVirtualVtableGlobalAllocatedForPolymorphicType(t *testing.T) {
+func Test_VtableGlobalAllocatedForPolymorphicType(t *testing.T) {
 	exe := compileCode(t, `
 class B {
 public:
@@ -331,7 +331,7 @@ public:
 int B::f() { return 42; }
 B b;
 void main() {}
-`, newArduinoTestMachineInfo())
+`, newArduinoTestMachineInfo(t))
 	if exe == nil {
 		return
 	}
@@ -352,7 +352,7 @@ void main() {}
 	}
 }
 
-func TestVirtualVtableNotAllocatedForNonPolymorphicType(t *testing.T) {
+func Test_VtableNotAllocatedForNonPolymorphicType(t *testing.T) {
 	exe := compileCode(t, `
 class C {
 public:
@@ -360,7 +360,7 @@ public:
 };
 C c;
 void main() {}
-`, newArduinoTestMachineInfo())
+`, newArduinoTestMachineInfo(t))
 	if exe == nil {
 		return
 	}
@@ -372,7 +372,7 @@ void main() {}
 	}
 }
 
-func TestVirtualCallVirtualOpcodeUsedForVirtualDispatch(t *testing.T) {
+func Test_CallVirtualOpcodeUsedForVirtualDispatch(t *testing.T) {
 	exe := compileCode(t, `
 class Base {
 public:
@@ -383,7 +383,7 @@ void main() {
     Base b;
     b.f();
 }
-`, newArduinoTestMachineInfo())
+`, newArduinoTestMachineInfo(t))
 	if exe == nil {
 		return
 	}
@@ -399,7 +399,7 @@ void main() {
 	}
 	hasCallVirtual := false
 	for _, inst := range mainFunc.Instructions {
-		if inst.Op == int(OpCodeCallVirtual) {
+		if inst.Op == OpCodeCallVirtual {
 			hasCallVirtual = true
 			break
 		}
@@ -409,7 +409,7 @@ void main() {
 	}
 }
 
-func TestVirtualVtableSlotZeroContainsTypeId(t *testing.T) {
+func Test_VtableSlotZeroContainsTypeId(t *testing.T) {
 	exe := compileCode(t, `
 class A {
 public:
@@ -418,7 +418,7 @@ public:
 int A::f() { return 1; }
 A a;
 void main() {}
-`, newArduinoTestMachineInfo())
+`, newArduinoTestMachineInfo(t))
 	if exe == nil {
 		return
 	}
@@ -433,11 +433,11 @@ void main() {}
 		t.Skip("Vtable A not found or no initial values")
 		return
 	}
-	typeId := vtableA.InitialValue[0].Int32Value
+	typeId := vtableA.InitialValue[0].Int32Value()
 	assert.True(t, typeId > 0, "Type ID at vtable slot 0 should be a positive integer")
 }
 
-func TestVirtualConcreteClassOverridingPureVirtual(t *testing.T) {
+func Test_ConcreteClassOverridingPureVirtual(t *testing.T) {
 	runCode(t, `
 class A {
 public:
@@ -452,5 +452,5 @@ void main() {
     B b;
     assertAreEqual(42, b.f());
 }
-`, newArduinoTestMachineInfo())
+`, newArduinoTestMachineInfo(t))
 }

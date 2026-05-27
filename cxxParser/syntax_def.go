@@ -211,6 +211,35 @@ type Statement interface {
 	String() string
 }
 
+func StatementOrEmpty(o any) Statement {
+	if s, ok := o.(Statement); ok {
+		return s
+	}
+	return NewEmptyStatement()
+}
+
+// ── EmptyStatement ─────────────────────────────────────────────────────
+
+type EmptyStatement struct {
+	StatementBase
+}
+
+func NewEmptyStatement() *EmptyStatement {
+	return &EmptyStatement{}
+}
+
+func (s *EmptyStatement) AlwaysReturns() bool { return false }
+
+//goland:noinspection GoUnusedParameter
+func (s *EmptyStatement) AddDeclarationToBlock(ctx *BlockContext) {}
+
+//goland:noinspection GoUnusedParameter
+func (s *EmptyStatement) DoEmit(ec *EmitContext) {}
+func (s *EmptyStatement) Emit(ec *EmitContext)   { s.DoEmit(ec) }
+func (s *EmptyStatement) String() string {
+	return "`<empty>`"
+}
+
 func ToBlock(s Statement) *Block {
 	if b, ok := s.(*Block); ok {
 		return b
@@ -541,12 +570,20 @@ type ConstantExpression struct {
 
 //goland:noinspection GoUnusedGlobalVariable
 var (
-	ConstantExpressionZero        = &ConstantExpression{Value: int64(0), ConstantType: CBasicTypeSignedInt}
-	ConstantExpressionOne         = &ConstantExpression{Value: int64(1), ConstantType: CBasicTypeSignedInt}
-	ConstantExpressionNegativeOne = &ConstantExpression{Value: int64(-1), ConstantType: CBasicTypeSignedInt}
-	ConstantExpressionTrue        = &ConstantExpression{Value: true, ConstantType: CBasicTypeBool}
-	ConstantExpressionFalse       = &ConstantExpression{Value: false, ConstantType: CBasicTypeBool}
+	ConstantExpressionZero        *ConstantExpression
+	ConstantExpressionOne         *ConstantExpression
+	ConstantExpressionNegativeOne *ConstantExpression
+	ConstantExpressionTrue        *ConstantExpression
+	ConstantExpressionFalse       *ConstantExpression
 )
+
+func init() {
+	ConstantExpressionZero = &ConstantExpression{Value: int64(0), ConstantType: CBasicTypeSignedInt}
+	ConstantExpressionOne = &ConstantExpression{Value: int64(1), ConstantType: CBasicTypeSignedInt}
+	ConstantExpressionNegativeOne = &ConstantExpression{Value: int64(-1), ConstantType: CBasicTypeSignedInt}
+	ConstantExpressionTrue = &ConstantExpression{Value: true, ConstantType: CBasicTypeBool}
+	ConstantExpressionFalse = &ConstantExpression{Value: false, ConstantType: CBasicTypeBool}
+}
 
 func NewConstantExpression(val interface{}) *ConstantExpression {
 	e := &ConstantExpression{Value: val}
@@ -706,7 +743,7 @@ func (e *ConstantExpression) EvalConstant(ec *EmitContext) Value {
 		if floatType.Bits == 64 {
 			return ValueOf(toFloat64(e.Value))
 		}
-		return ValueOf(float64(toFloat32(e.Value)))
+		return ValueOf(toFloat32(e.Value))
 	}
 	if vs, ok := e.Value.(string); ok {
 		return ec.self.GetConstantMemory(vs)
@@ -1910,13 +1947,13 @@ func (e *SizeOfExpression) GetEvaluatedCType(ec *EmitContext) CType {
 
 func (e *SizeOfExpression) Emit(ec *EmitContext) {
 	typ := e.Query.GetEvaluatedCType(ec)
-	cval := ValueOf(int64(typ.NumValues()))
+	cval := ValueOf(int64(typ.GetByteSize(ec)))
 	ec.Emit(OpCodeLoadConstant, cval)
 }
 
 func (e *SizeOfExpression) EvalConstant(ec *EmitContext) Value {
 	typ := e.Query.GetEvaluatedCType(ec)
-	return ValueOf(int64(typ.NumValues()))
+	return ValueOf(int64(typ.GetByteSize(ec)))
 }
 func (e *SizeOfExpression) EmitPointer(ec *EmitContext) { defaultEmitPointer(ec) }
 func (e *SizeOfExpression) CanEmitPointer() bool        { return false }
@@ -1940,13 +1977,13 @@ func (e *SizeOfTypeExpression) GetEvaluatedCType(ec *EmitContext) CType {
 
 func (e *SizeOfTypeExpression) Emit(ec *EmitContext) {
 	typ := ec.ResolveTypeNameFromTypeName(e.TypeName)
-	cval := ValueOf(int64(typ.NumValues()))
+	cval := ValueOf(int64(typ.GetByteSize(ec)))
 	ec.Emit(OpCodeLoadConstant, cval)
 }
 
 func (e *SizeOfTypeExpression) EvalConstant(ec *EmitContext) Value {
 	typ := ec.ResolveTypeNameFromTypeName(e.TypeName)
-	return ValueOf(int64(typ.NumValues()))
+	return ValueOf(int64(typ.GetByteSize(ec)))
 }
 func (e *SizeOfTypeExpression) EmitPointer(ec *EmitContext) { defaultEmitPointer(ec) }
 func (e *SizeOfTypeExpression) CanEmitPointer() bool        { return false }
@@ -2103,6 +2140,10 @@ func (e *ConditionalExpression) GetEvaluatedCType(ec *EmitContext) CType {
 	return e.TrueValue.GetEvaluatedCType(ec)
 }
 
+func (e *ConditionalExpression) EvalConstant(ec *EmitContext) Value {
+	return defaultEvalConstant(e, ec)
+}
+
 func (e *ConditionalExpression) Emit(ec *EmitContext) {
 	falseLabel := ec.DefineLabel()
 	endLabel := ec.DefineLabel()
@@ -2194,9 +2235,9 @@ func (e *LogicExpression) Emit(ec *EmitContext) {
 	ec.self.EmitLabel(&endLabel)
 }
 
-func (e *LogicExpression) EmitPointer(ec *EmitContext) { defaultEmitPointer(ec) }
-func (e *LogicExpression) CanEmitPointer() bool        { return false }
-func (e *LogicExpression) String() string              { return fmt.Sprintf("(%v %v %v)", e.Left, e.Op, e.Right) }
+func (e *LogicExpression) EmitPointer(ec *EmitContext)        { defaultEmitPointer(ec) }
+func (e *LogicExpression) CanEmitPointer() bool               { return false }
+func (e *LogicExpression) String() string                     { return fmt.Sprintf("(%v %v %v)", e.Left, e.Op, e.Right) }
 func (e *LogicExpression) EvalConstant(ec *EmitContext) Value { return defaultEvalConstant(e, ec) }
 
 // ── ParameterDeclaration & VarParameter ─────────────────────────────────────
