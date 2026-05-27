@@ -452,16 +452,16 @@ func convertValue(v Value, fromType, toType int) Value {
 	switch fromType {
 	case 0: // Int8
 		val = int64(int8(val))
-	case 1: // Int16
+	case 2: // Int16
 		val = int64(int16(val))
-	case 2: // Int32
+	case 4: // Int32
 		val = int64(int32(val))
-	case 3: // Int64
-	case 4: // UInt8
+	case 6: // Int64
+	case 1: // UInt8
 		val = int64(uint8(val))
-	case 5: // UInt16
+	case 3: // UInt16
 		val = int64(uint16(val))
-	case 6: // UInt32
+	case 5: // UInt32
 		val = int64(uint32(val))
 	case 7: // UInt64
 		val = int64(uint64(val))
@@ -474,17 +474,17 @@ func convertValue(v Value, fromType, toType int) Value {
 	switch toType {
 	case 0: // Int8
 		return ValueOf(int8(val))
-	case 1: // Int16
+	case 2: // Int16
 		return ValueOf(int16(val))
-	case 2: // Int32
+	case 4: // Int32
 		return ValueOf(int32(val))
-	case 3: // Int64
+	case 6: // Int64
 		return ValueOf(val)
-	case 4: // UInt8
+	case 1: // UInt8
 		return ValueOf(uint8(val))
-	case 5: // UInt16
+	case 3: // UInt16
 		return ValueOf(uint16(val))
-	case 6: // UInt32
+	case 5: // UInt32
 		return ValueOf(uint32(val))
 	case 7: // UInt64
 		return ValueOf(uint64(val))

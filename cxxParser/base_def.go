@@ -307,11 +307,31 @@ func (v *Value) CharValue() byte {
 }
 
 func (v *Value) Float64Value() float64 {
-	return (*_UnionValue[float64])(unsafe.Pointer(v))._Value
+	return (*_Float64Value)(unsafe.Pointer(v))._Value
 }
 
 func (v *Value) Float32Value() float32 {
-	return (*_UnionValue[float32])(unsafe.Pointer(v))._Value
+	return (*_Float32Value)(unsafe.Pointer(v))._Value
+}
+
+type _Float32Value struct {
+	_Value float32
+	_mask  uint32
+}
+type _Float64Value struct {
+	_Value float64
+}
+
+func ValueFloat32(v float32) Value {
+	val := Value{Int64Value: 0}
+	(*_Float32Value)(unsafe.Pointer(&val))._Value = v
+	return val
+}
+
+func ValueFloat64(v float64) Value {
+	val := Value{Int64Value: 0}
+	(*_Float64Value)(unsafe.Pointer(&val))._Value = v
+	return val
 }
 
 //endregion

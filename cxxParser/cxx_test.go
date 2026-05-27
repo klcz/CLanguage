@@ -215,7 +215,7 @@ func addAssertFunctions(t *testing.T, mi *cxx.MachineInfo) {
 	mi.AddInternalFunction("signed int memcmp(void* s1, void* s2, signed int n)", func(state *cxx.CInterpreter) {
 		s1 := new(state.ReadArg(0)).PointerValue()
 		s2 := new(state.ReadArg(1)).PointerValue()
-		n := new(state.ReadArg(1)).Int32Value()
+		n := new(state.ReadArg(2)).Int32Value() / int32(mi.IntSize)
 		for n > 0 {
 			v1 := new(state.ReadMemory(int(s1))).UInt8Value()
 			v2 := new(state.ReadMemory(int(s2))).UInt8Value()

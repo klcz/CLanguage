@@ -1199,9 +1199,9 @@ func ValueOf(v interface{}) Value {
 	case uint8:
 		return Value{Int64Value: int64(x)}
 	case float64:
-		return UnionValue(x)
+		return ValueFloat64(x)
 	case float32:
-		return UnionValue(x)
+		return ValueFloat32(x)
 	case bool:
 		if x {
 			return Value{Int64Value: 1}
