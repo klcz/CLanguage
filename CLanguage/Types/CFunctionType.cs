@@ -89,7 +89,7 @@ namespace CLanguage.Types
             {
                 s += head;
                 s += p;
-                head = " ";
+                head = ", ";
             }
             s += "))";
             return s;

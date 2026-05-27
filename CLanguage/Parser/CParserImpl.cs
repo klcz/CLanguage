@@ -15,6 +15,20 @@ namespace CLanguage.Parser
         //
         static public int yacc_verbose_flag;
 
+        static public string DebugHelper = "+DebugYyN";  // DebugYyN, DumpTokens
+        // int yyNCount = 0;
+        /*
+                    if (DebugHelper.Contains("+DebugYyN")) {
+                        if (DebugHelper.Contains($"+DebugYyN^{yyN}:")) {
+                            yyNCount += 1;
+                            if (DebugHelper.Contains($"+DebugYyN^{yyN}:{yyNCount}")) {
+                                yyNCount = 0;
+                            }
+                            Console.WriteLine(yyN);
+                        }
+                    }
+        */
+
         TranslationUnit _tu;
         ParserInput lexer;
 

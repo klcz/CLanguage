@@ -55,3 +55,6 @@ Thumbs.db
 *.dotCover
 
 .fake
+/.claude
+/CLanguageTests2
+/cxxParser/CLanguageTests2

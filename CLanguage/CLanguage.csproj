@@ -24,6 +24,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Parser\CParser_tmpl.cs" />
+    <Compile Remove="Parser\skeleton.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Folder Include="Interpreter\" />
     <Folder Include="Parser\" />
     <Folder Include="Syntax\" />

@@ -18,6 +18,11 @@ end_of_line = lf
 indent_style = space
 tab_width = 4
 
+# Go files
+[*.go]
+end_of_line = lf
+indent_style = tab
+
 # New line preferences
 csharp_new_line_before_open_brace = methods, types
 csharp_new_line_before_else = true
