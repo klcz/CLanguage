@@ -791,7 +791,9 @@ func NewWhileStatement(isDoWhile bool, cond Expression, body *Block) *WhileState
 func (s *WhileStatement) AlwaysReturns() bool { return false }
 
 //goland:noinspection GoUnusedParameter
-func (s *WhileStatement) AddDeclarationToBlock(ctx *BlockContext) {}
+func (s *WhileStatement) AddDeclarationToBlock(ctx *BlockContext) {
+	s.Body.AddDeclarationToBlock(ctx)
+}
 
 func (s *WhileStatement) DoEmit(ec *EmitContext) {
 	condLabel := ec.DefineLabel()
