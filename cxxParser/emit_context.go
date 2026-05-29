@@ -853,6 +853,12 @@ func (bc *BlockContext) ResolveTypeNameString(typeName string) CType {
 }
 
 func (bc *BlockContext) TryResolveVariable(name string, argTypes []CType) *ResolvedVariable {
+	// Check variables in this block scope
+	for _, v := range bc.Block.Variables {
+		if v.Name == name {
+			return &ResolvedVariable{Scope: VariableScopeGlobal, Address: v.StackOffset, VariableType: v.VariableType}
+		}
+	}
 	// Check enum members in this block scope
 	for _, et := range bc.Block.Enums {
 		for _, em := range et.Members {
