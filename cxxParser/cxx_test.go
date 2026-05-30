@@ -1447,21 +1447,19 @@ func testPromote(t *testing.T, mi *cxx.MachineInfo, type_ string, resultBytes in
 
 	var sVar *cxx.CompiledVariable
 	for _, bf := range exe.Globals {
-		if bf.Name == "s" {
+		if bf.Name == "v" {
 			sVar = &bf
 			break
 		}
 	}
 	assert.NotNil(t, sVar)
 	ty := sVar.VariableType
-
-	assert.IsType(t, &cxx.CBasicType{}, ty)
-
-	bty := ty.(*cxx.CBasicType)
+	
+	bty := ty.GetBasicType()
 	assert.True(t, bty.IsIntegral())
 	pty := bty.IntegerPromote(context.EmitContext)
 
-	assert.Equal(t, pty.(*cxx.CBasicType).Signedness, signedness)
+	assert.Equal(t, pty.GetBasicType().Signedness, signedness)
 	assert.Equal(t, pty.GetByteSize(context.EmitContext), resultBytes)
 }
 
@@ -1494,24 +1492,23 @@ func testArithmetic(t *testing.T, mi *cxx.MachineInfo, type1 string, type2 strin
 	}
 	assert.NotNil(t, sVar2)
 	ty2 := sVar2.VariableType
-
-	assert.IsType(t, &cxx.CBasicType{}, ty1)
-	assert.IsType(t, &cxx.CBasicType{}, ty2)
-
-	bty1 := ty1.(*cxx.CBasicType)
-	bty2 := ty2.(*cxx.CBasicType)
+	
+	bty1 := ty1.GetBasicType()
+	bty2 := ty2.GetBasicType()
 	assert.True(t, bty1.IsIntegral())
 	assert.True(t, bty2.IsIntegral())
 	aty1 := bty1.ArithmeticConvert(bty2, context.EmitContext)
 	aty2 := bty2.ArithmeticConvert(bty1, context.EmitContext)
 
-	assert.Equal(t, aty1.(*cxx.CBasicType).Signedness, result.Signedness)
+	assert.Equal(t, aty1.GetBasicType().Signedness, result.Signedness)
 	assert.Equal(t, aty1.GetByteSize(context.EmitContext), result.GetByteSize(context.EmitContext))
-	assert.Equal(t, aty2.(*cxx.CBasicType).Signedness, result.Signedness)
+	assert.Equal(t, aty2.GetBasicType().Signedness, result.Signedness)
 	assert.Equal(t, aty2.GetByteSize(context.EmitContext), result.GetByteSize(context.EmitContext))
 }
 
 func Test_ArduinoPromote(t *testing.T) {
+	t.Helper()
+	
 	mi := newArduinoTestMachineInfo(t)
 
 	testPromote(t, mi, "unsigned char", 2, cxx.Signed)
@@ -1696,7 +1693,7 @@ func parseVariables(code string) []cxx.CompiledVariable {
 
 func parseFunctions(code string) []cxx.BaseFunction {
 	exe := cxx.Compile(code, cxx.Windows32, newTestPrinter(nil, nil))
-	funcs := make([]cxx.BaseFunction, len(exe.Functions))
+	funcs := make([]cxx.BaseFunction, 0, len(exe.Functions))
 	for _, f := range exe.Functions {
 		if f.GetName() != "__cinit" {
 			funcs = append(funcs, f)
@@ -1708,7 +1705,7 @@ func parseFunctions(code string) []cxx.BaseFunction {
 func Test_QualifiedBasic(t *testing.T) {
 	vs := parseVariables("const int cat;")
 	v := vs[0]
-	assert.IsType(t, &cxx.CBasicType{}, v.VariableType)
+	assert.IsType(t, &cxx.CBasicType{}, v.VariableType.GetBasicType())
 	assert.Equal(t, cxx.TypeQualifiersConst, v.VariableType.GetTypeQualifiers())
 }
 
@@ -1720,8 +1717,8 @@ func Test_NonConstPointerToConstChar(t *testing.T) {
 	pt := v.VariableType.(*cxx.CPointerType)
 	assert.Equal(t, cxx.TypeQualifiersNone, pt.TypeQualifiers)
 
-	assert.IsType(t, &cxx.CBasicType{}, pt.InnerType)
-	assert.Equal(t, "char", (pt.InnerType.(*cxx.CBasicType)).Name)
+	assert.IsType(t, &cxx.CBasicType{}, pt.InnerType.GetBasicType())
+	assert.Equal(t, "char", (pt.InnerType.GetBasicType()).Name)
 	assert.Equal(t, cxx.TypeQualifiersConst, pt.InnerType.GetTypeQualifiers())
 }
 
@@ -1733,8 +1730,8 @@ func Test_ConstPointerToChar(t *testing.T) {
 	pt := v.VariableType.(*cxx.CPointerType)
 	assert.Equal(t, cxx.TypeQualifiersConst, pt.TypeQualifiers)
 
-	assert.IsType(t, &cxx.CBasicType{}, pt.InnerType)
-	assert.Equal(t, "char", (pt.InnerType.(*cxx.CBasicType)).Name)
+	assert.IsType(t, &cxx.CBasicType{}, pt.InnerType.GetBasicType())
+	assert.Equal(t, "char", (pt.InnerType.GetBasicType()).Name)
 	assert.Equal(t, cxx.TypeQualifiersNone, pt.InnerType.GetTypeQualifiers())
 }
 
@@ -1746,8 +1743,8 @@ func Test_ConstPointerToConstChar1(t *testing.T) {
 	pt := v.VariableType.(*cxx.CPointerType)
 	assert.Equal(t, cxx.TypeQualifiersConst, pt.TypeQualifiers)
 
-	assert.IsType(t, &cxx.CBasicType{}, pt.InnerType)
-	assert.Equal(t, "char", (pt.InnerType.(*cxx.CBasicType)).Name)
+	assert.IsType(t, &cxx.CBasicType{}, pt.InnerType.GetBasicType())
+	assert.Equal(t, "char", (pt.InnerType.GetBasicType()).Name)
 	assert.Equal(t, cxx.TypeQualifiersConst, pt.InnerType.GetTypeQualifiers())
 }
 
@@ -1759,8 +1756,8 @@ func Test_ConstPointerToConstChar2(t *testing.T) {
 	pt := v.VariableType.(*cxx.CPointerType)
 	assert.Equal(t, cxx.TypeQualifiersConst, pt.TypeQualifiers)
 
-	assert.IsType(t, &cxx.CBasicType{}, pt.InnerType)
-	assert.Equal(t, "char", (pt.InnerType.(*cxx.CBasicType)).Name)
+	assert.IsType(t, &cxx.CBasicType{}, pt.InnerType.GetBasicType())
+	assert.Equal(t, "char", (pt.InnerType.GetBasicType()).Name)
 	assert.Equal(t, cxx.TypeQualifiersConst, pt.InnerType.GetTypeQualifiers())
 }
 
@@ -1774,8 +1771,8 @@ func Test_PointerToPointer(t *testing.T) {
 	assert.IsType(t, &cxx.CPointerType{}, pt.InnerType)
 	pt1 := pt.InnerType.(*cxx.CPointerType)
 
-	assert.IsType(t, &cxx.CBasicType{}, pt1.InnerType)
-	assert.Equal(t, "char", (pt1.InnerType.(*cxx.CBasicType)).Name)
+	assert.IsType(t, &cxx.CBasicType{}, pt1.InnerType.GetBasicType())
+	assert.Equal(t, "char", (pt1.InnerType.GetBasicType()).Name)
 }
 
 func Test_PointerToConstPointerToConstBasic(t *testing.T) {
@@ -1791,8 +1788,8 @@ func Test_PointerToConstPointerToConstBasic(t *testing.T) {
 	pt1 := pt.InnerType.(*cxx.CPointerType)
 	assert.Equal(t, cxx.TypeQualifiersConst, pt1.TypeQualifiers)
 
-	assert.IsType(t, &cxx.CBasicType{}, pt1.InnerType)
-	b := pt1.InnerType.(*cxx.CBasicType)
+	assert.IsType(t, &cxx.CBasicType{}, pt1.InnerType.GetBasicType())
+	b := pt1.InnerType.GetBasicType()
 	assert.Equal(t, cxx.TypeQualifiersConst, b.TypeQualifiers)
 	assert.Equal(t, "int", b.Name)
 }
@@ -1806,8 +1803,8 @@ func Test_ArrayOfPointers(t *testing.T) {
 	assert.IsType(t, &cxx.CPointerType{}, a.ElementType)
 	p := (a.ElementType).(*cxx.CPointerType)
 
-	assert.IsType(t, &cxx.CBasicType{}, p.InnerType)
-	assert.Equal(t, "char", (p.InnerType).(*cxx.CBasicType).Name)
+	assert.IsType(t, &cxx.CBasicType{}, p.InnerType.GetBasicType())
+	assert.Equal(t, "char", (p.InnerType).GetBasicType().Name)
 }
 
 func Test_ArrayOfPointersToArray(t *testing.T) {
@@ -1836,8 +1833,8 @@ func Test_PointerToArrayOfPointers(t *testing.T) {
 	assert.IsType(t, &cxx.CPointerType{}, a.ElementType)
 	p2 := a.ElementType.(*cxx.CPointerType)
 
-	assert.IsType(t, &cxx.CBasicType{}, p2.InnerType)
-	assert.Equal(t, "int", (p2.InnerType).(*cxx.CBasicType).Name)
+	assert.IsType(t, &cxx.CBasicType{}, p2.InnerType.GetBasicType())
+	assert.Equal(t, "int", (p2.InnerType).GetBasicType().Name)
 }
 
 func Test_FunctionPointerReturnVoidArg(t *testing.T) {
@@ -1851,7 +1848,7 @@ func Test_FunctionPointerReturnVoidArg(t *testing.T) {
 		assert.Equal(t, "wicket", f.GetName())
 
 		assert.IsType(t, &cxx.CPointerType{}, f.GetFunctionType().ReturnType)
-		assert.Equal(t, "char", ((f.GetFunctionType().ReturnType.(*cxx.CPointerType)).InnerType).(*cxx.CBasicType).Name)
+		assert.Equal(t, "char", ((f.GetFunctionType().ReturnType.(*cxx.CPointerType)).InnerType).GetBasicType().Name)
 
 		assert.Equal(t, 0, len(f.GetFunctionType().Parameters()))
 	}
@@ -1868,18 +1865,18 @@ func Test_FunctionWithFunctionArg(t *testing.T) {
 		f := fs[0]
 		assert.Equal(t, "crowd", f.GetName())
 
-		assert.IsType(t, &cxx.CBasicType{}, f.GetFunctionType().ReturnType)
-		assert.Equal(t, "int", (f.GetFunctionType().ReturnType.(*cxx.CBasicType)).Name)
+		assert.IsType(t, &cxx.CBasicType{}, f.GetFunctionType().ReturnType.GetBasicType())
+		assert.Equal(t, "int", (f.GetFunctionType().ReturnType.GetBasicType()).Name)
 
 		assert.Equal(t, 2, len(f.GetFunctionType().Parameters()))
 		p1 := f.GetFunctionType().Parameters()[0]
 		p2 := f.GetFunctionType().Parameters()[1]
 
-		assert.IsType(t, &cxx.CBasicType{}, p1.ParameterType)
-		assert.Equal(t, "char", (p1.ParameterType).(*cxx.CBasicType).Name)
+		assert.IsType(t, &cxx.CBasicType{}, p1.ParameterType.GetBasicType())
+		assert.Equal(t, "char", (p1.ParameterType).GetBasicType().Name)
 
 		assert.IsType(t, &cxx.CFunctionType{}, p2.ParameterType)
-		assert.Equal(t, "int", ((p2.ParameterType.(*cxx.CFunctionType)).ReturnType).(*cxx.CBasicType).Name)
+		assert.Equal(t, "int", ((p2.ParameterType.(*cxx.CFunctionType)).ReturnType).GetBasicType().Name)
 	}
 }
 
@@ -1895,8 +1892,8 @@ func Test_FunctionWithFunctionArgReturningPointer(t *testing.T) {
 		p1 := f.GetFunctionType().Parameters()[0]
 		p2 := f.GetFunctionType().Parameters()[1]
 
-		assert.IsType(t, &cxx.CBasicType{}, p1.ParameterType)
-		assert.Equal(t, "char", (p1.ParameterType).(*cxx.CBasicType).Name)
+		assert.IsType(t, &cxx.CBasicType{}, p1.ParameterType.GetBasicType())
+		assert.Equal(t, "char", (p1.ParameterType).GetBasicType().Name)
 
 		assert.IsType(t, &cxx.CFunctionType{}, p2.ParameterType)
 		assert.IsType(t, &cxx.CPointerType{}, (p2.ParameterType).(*cxx.CFunctionType).ReturnType)
@@ -1935,8 +1932,8 @@ func Test_FunctionReturningFunction(t *testing.T) {
 
 	p1 := f.Parameters()[0]
 
-	assert.IsType(t, &cxx.CBasicType{}, p1.ParameterType)
-	assert.Equal(t, "double", (p1.ParameterType).(*cxx.CBasicType).Name)
+	assert.IsType(t, &cxx.CBasicType{}, p1.ParameterType.GetBasicType())
+	assert.Equal(t, "double", (p1.ParameterType).GetBasicType().Name)
 
 	assert.IsType(t, &cxx.CFunctionType{}, f.ReturnType)
 	r := f.ReturnType.(*cxx.CFunctionType)
