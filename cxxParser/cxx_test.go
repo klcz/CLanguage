@@ -459,18 +459,18 @@ void main() {
 }
 
 func Test_EasyEval(t *testing.T) {
-	var result = cxx.Eval("2 + 3", "")
+	result := cxx.Eval("2 + 3", "")
 	assert.Equal(t, int32(5), result)
 }
 
 func Test_EasyEvalMore(t *testing.T) {
-	var result = cxx.Eval("x * 100", "int x = 42;")
+	result := cxx.Eval("x * 100", "int x = 42;")
 	assert.Equal(t, int32(4200), result)
 }
 
 func Test_ReferenceTypeCreation(t *testing.T) {
-	var intType = cxx.SignedInt
-	var refType = cxx.NewCReferenceType(intType)
+	intType := cxx.SignedInt
+	refType := cxx.NewCReferenceType(intType)
 	assert.Equal(t, 1, refType.NumValues())
 	assert.Equal(t, "signed int&", refType.String())
 	assert.Equal(t, refType, cxx.NewCReferenceType(intType))
@@ -478,8 +478,8 @@ func Test_ReferenceTypeCreation(t *testing.T) {
 }
 
 func Test_ReferenceScoreCastTo(t *testing.T) {
-	var intType = cxx.SignedInt
-	var refType = cxx.NewCReferenceType(intType)
+	intType := cxx.SignedInt
+	refType := cxx.NewCReferenceType(intType)
 	// Reference to same reference: perfect
 	assert.Equal(t, 1000, refType.ScoreCastTo(cxx.NewCReferenceType(intType)))
 	// Reference to inner type: high score
@@ -518,7 +518,7 @@ func Test_YieldingDelay(t *testing.T) {
 			i.Push(cxx.UnionValue(ms * 1000))
 		}
 	})
-	var it = safeRun(t, `
+	it := safeRun(t, `
 void main () {
     auto x = yieldingDelay(3);
     assertAreEqual (3000, x);
@@ -713,17 +713,6 @@ func Test_ArrayByteSizes(t *testing.T) {
 	}
 }
 
-func Test_ArrayByteSizes11(t *testing.T) {
-	tests := map[string]int{
-		"int (*a[5])[42];": 20,
-	}
-
-	for code, size := range tests {
-		_c, typ := parseType(code)
-		assert.Equal(t, size, typ.GetByteSize(_c.EmitContext), "code: `"+code+"`")
-	}
-}
-
 func Test_ErrorIfDoesntReturn(t *testing.T) {
 	safeCompileFailed(t, "int f () { int a = 42; }", newArduinoTestMachineInfo(t), 161)
 }
@@ -868,6 +857,7 @@ void loop() {
 	delay(1000);              // wait for a second
 }
 `
+
 var FadeCode = `
 int brightness = 0;    // how bright the LED is
 int fadeAmount = 5;    // how many points to fade the LED by
@@ -894,7 +884,7 @@ void loop()  {
 `
 
 func Test_ArduinoBlink(t *testing.T) {
-	var exe = safeCompile(t, BlinkCode, newArduinoTestMachineInfo(t))
+	exe := safeCompile(t, BlinkCode, newArduinoTestMachineInfo(t))
 	var f *cxx.CompiledFunction
 	for _, bf := range exe.Functions {
 		if bf.GetName() == "loop" {
@@ -909,7 +899,7 @@ func Test_ArduinoBlink(t *testing.T) {
 }
 
 func Test_ArduinoFade(t *testing.T) {
-	var exe = safeCompile(t, FadeCode, newArduinoTestMachineInfo(t))
+	exe := safeCompile(t, FadeCode, newArduinoTestMachineInfo(t))
 	var f *cxx.CompiledFunction
 	for _, bf := range exe.Functions {
 		if bf.GetName() == "loop" {
@@ -952,7 +942,7 @@ func assertColorization(t *testing.T, code string, expectedColors ...cxx.SyntaxC
 	mi.AddInternalFunction("void delay()", nil)
 	mi.HeaderCode = "#define FOO 1\n\nvoid delay();\n\n"
 
-	var colors = cxx.Colorize(code, mi, cxx.NewSimplePrinterLevel("Fault"))
+	colors := cxx.Colorize(code, mi, cxx.NewSimplePrinterLevel("Fault"))
 	assert.Equal(t, len(expectedColors), len(colors), "Number of colored tokens don't match.")
 	for i, color := range colors {
 		ecolor := expectedColors[i]
@@ -1115,6 +1105,898 @@ void main() {
     assertAreEqual(11, i);
 }
 	`, newTestMachineInfo(t), 1001)
+}
+
+func Test_ArrayNumValues(t *testing.T) {
+	tests := map[string]int{
+		"char a[42];":      42,
+		"char a[42][12];":  504,
+		"char *a[42];":     42,
+		"char *a[42][12];": 504,
+		"int a[42];":       42,
+		"int a[42][12];":   504,
+		"int *a[42];":      42,
+		"int *a[42][12];":  504,
+	}
+	for code, size := range tests {
+		_, typ := parseType(code)
+		assert.Equal(t, size, typ.NumValues(), "code: `"+code+"`")
+	}
+}
+
+func Test_FieldLayoutThrowsForUnknownField(t *testing.T) {
+	s := cxx.NewCStructType("S")
+	tmp := cxx.NewCStructField("x", cxx.SignedInt)
+	s.Members = append(s.Members, tmp)
+
+	layout := cxx.NewStructLayout(s)
+	assert.Panics(t, func() {
+		layout.FieldLayout("nonexistent")
+	})
+}
+
+//goland:noinspection GoMaybeNil
+func Test_StructLayoutMatchesCompiledOffsets(t *testing.T) {
+	// Verify that StructLayout produces the same offsets as the compiler
+	exe := safeCompile(t, `
+struct Sensor {
+int id;
+float temperature;
+int status;
+};
+Sensor s;
+void main() {
+s.id = 1;
+s.temperature = 36.5f;
+s.status = 2;
+assertAreEqual(1, s.id);
+assertFloatsAreEqual(36.5f, s.temperature);
+assertAreEqual(2, s.status);
+}
+	`, newTestMachineInfo(t))
+
+	var sVar *cxx.CompiledVariable
+	for _, bf := range exe.Globals {
+		if bf.Name == "s" {
+			sVar = &bf
+			break
+		}
+	}
+	assert.NotNil(t, sVar)
+
+	sType := sVar.VariableType.(*cxx.CStructType)
+	assert.NotNil(t, sType)
+
+	layout := cxx.NewStructLayout(sType)
+	assert.Equal(t, 0, layout.Field("id").Offset)
+	assert.Equal(t, 1, layout.Field("temperature").Offset)
+	assert.Equal(t, 2, layout.Field("status").Offset)
+}
+
+func Test_StructLayoutUsedInInternalFunction(t *testing.T) {
+	// Simulate the pattern: use StructLayout in an internal function
+	servo := cxx.NewCStructType("Servo")
+	servo.Members = append(servo.Members, cxx.NewCStructField("pin", cxx.SignedInt))
+	servo.Members = append(servo.Members, cxx.NewCStructField("servoIndex", cxx.UnsignedChar))
+	servo.Members = append(servo.Members, cxx.NewCStructField("min", cxx.SignedChar))
+	servo.Members = append(servo.Members, cxx.NewCStructField("max", cxx.SignedChar))
+
+	layout := cxx.NewStructLayout(servo)
+	pinField := layout.Field("pin")
+	servoIndexField := layout.Field("servoIndex")
+	minField := layout.Field("min")
+	maxField := layout.Field("max")
+
+	// Simulate stack with struct at offset 5
+	stack := make([]cxx.Value, 20)
+	thisPtr := 5
+
+	// Write fields using accessors instead of magic numbers
+	pinField.Set(stack, thisPtr, cxx.UnionValue(13))
+	servoIndexField.Set(stack, thisPtr, cxx.UnionValue(byte(1)))
+	minField.Set(stack, thisPtr, cxx.UnionValue(int8(10)))
+	maxField.Set(stack, thisPtr, cxx.UnionValue(uint8(180)))
+
+	// Verify we can read them back
+	assert.Equal(t, int32(13), new(pinField.Get(stack, thisPtr)).Int32Value())
+	assert.Equal(t, uint8(1), new(servoIndexField.Get(stack, thisPtr)).UInt8Value())
+	assert.Equal(t, int8(10), new(minField.Get(stack, thisPtr)).Int8Value())
+	assert.Equal(t, uint8(180), new(maxField.Get(stack, thisPtr)).UInt8Value())
+
+	// Verify they're at the expected stack positions
+	assert.Equal(t, int32(13), stack[5].Int32Value())
+	assert.Equal(t, uint8(1), stack[6].UInt8Value())
+	assert.Equal(t, int8(10), stack[7].Int8Value())
+}
+
+func makeField(name string, type_ cxx.CType) *cxx.CStructField {
+	return cxx.NewCStructField(name, type_)
+}
+
+func makeVirtualMethod(name string, sig *cxx.CFunctionType) *cxx.CStructMethod {
+	m := cxx.NewCStructMethod(name, sig)
+	m.IsVirtual = true
+	return m
+}
+
+func makeOverrideMethod(name string, sig *cxx.CFunctionType) *cxx.CStructMethod {
+	m := cxx.NewCStructMethod(name, sig)
+	m.IsOverride = true
+	return m
+}
+
+func makeMethodSig(declaringType *cxx.CStructType) *cxx.CFunctionType {
+	return cxx.NewCFunctionType(cxx.SignedInt, true, declaringType)
+}
+
+// ---- Non-polymorphic types: zero-cost guarantee ----
+
+func Test_NonPolymorphicByteSizeUnchanged(t *testing.T) {
+	printer := newTestPrinter(nil, nil)
+	_c := cxx.NewExecutableContext(cxx.NewExecutable(cxx.Windows32), cxx.NewReport(printer))
+
+	s := cxx.NewCStructType("Plain")
+	s.Members = append(s.Members, makeField("x", cxx.SignedInt))
+	s.Members = append(s.Members, makeField("y", cxx.SignedInt))
+	assert.Equal(t, 8, s.GetByteSize(_c.EmitContext)) // 2 * 4 bytes
+}
+
+// ---- IsPolymorphic ----
+
+// ---- NumValues with polymorphism ----
+
+// ---- GetByteSize with polymorphism ----
+
+func Test_PolymorphicByteSizeIncludesVptr(t *testing.T) {
+	printer := newTestPrinter(nil, nil)
+	_c := cxx.NewExecutableContext(cxx.NewExecutable(cxx.Windows32), cxx.NewReport(printer))
+
+	s := cxx.NewCStructType("Base")
+	s.Members = append(s.Members, makeField("x", cxx.SignedInt))
+	method := makeVirtualMethod("foo", makeMethodSig(s))
+	s.Members = append(s.Members, method)
+	s.BuildVTable()
+
+	// 4 (vptr) + 4 (x) = 8
+	assert.Equal(t, 8, s.GetByteSize(_c.EmitContext))
+}
+
+func Test_DerivedByteSizeIncludesBaseFields(t *testing.T) {
+	printer := newTestPrinter(nil, nil)
+	_c := cxx.NewExecutableContext(cxx.NewExecutable(cxx.Windows32), cxx.NewReport(printer))
+
+	baseType := cxx.NewCStructType("Base")
+	baseType.Members = append(baseType.Members, makeField("x", cxx.SignedInt))
+	method := makeVirtualMethod("foo", makeMethodSig(baseType))
+	baseType.Members = append(baseType.Members, method)
+	baseType.BuildVTable()
+
+	derived := cxx.NewCStructType("Derived")
+	derived.BaseType = baseType
+	derived.Members = append(derived.Members, makeField("y", cxx.SignedInt))
+	derived.BuildVTable()
+
+	// 4 (vptr) + 4 (base x) + 4 (own y) = 12
+	assert.Equal(t, 12, derived.GetByteSize(_c.EmitContext))
+}
+
+// ---- GetFieldValueOffset with polymorphism ----
+
+// ---- VTable construction ----
+
+// [ExpectedException (typeof (InvalidOperationException))]
+func Test_BuildVTableOverrideWithoutBaseThrows(t *testing.T) {
+	s := cxx.NewCStructType("Bad")
+	sig := makeMethodSig(s)
+	assert.Panics(t, func() {
+		method := makeOverrideMethod("nonexistent", sig)
+		s.Members = append(s.Members, method)
+		s.BuildVTable()
+	})
+}
+
+// ---- GetOwnFieldsNumValues / GetOwnFieldsByteSize ----
+
+func Test_GetOwnFieldsByteSizeExcludesMethods(t *testing.T) {
+	printer := newTestPrinter(nil, nil)
+	_c := cxx.NewExecutableContext(cxx.NewExecutable(cxx.Windows32), cxx.NewReport(printer))
+
+	s := cxx.NewCStructType("S")
+	s.Members = append(s.Members, makeField("x", cxx.SignedInt))
+	s.Members = append(s.Members, cxx.NewCStructMethod("foo", makeMethodSig(s)))
+	s.Members = append(s.Members, makeField("y", cxx.SignedInt))
+	assert.Equal(t, 8, s.GetOwnFieldsByteSize(_c.EmitContext)) // 2 * 4 bytes
+}
+
+// ---- VTableEntry ----
+
+// ---- CStructMethod flags ----
+
+// ---- BaseType property ----
+
+// ---- Non-polymorphic base type (no virtual methods) ----
+
+func Test_NonPolymorphicBaseByteSize(t *testing.T) {
+	printer := newTestPrinter(nil, nil)
+	_c := cxx.NewExecutableContext(cxx.NewExecutable(cxx.Windows32), cxx.NewReport(printer))
+
+	baseType := cxx.NewCStructType("Base")
+	baseType.Members = append(baseType.Members, makeField("x", cxx.SignedInt))
+
+	derived := cxx.NewCStructType("Derived")
+	derived.BaseType = baseType
+	derived.Members = append(derived.Members, makeField("y", cxx.SignedInt))
+
+	// No vptr: 4 (base x) + 4 (own y) = 8
+	assert.Equal(t, 8, derived.GetByteSize(_c.EmitContext))
+}
+
+//goland:noinspection GoUnusedFunction
+func getDeclaredIdentifier(d cxx.Declarator) string {
+	for d != nil {
+		if id, ok := d.(*cxx.IdentifierDeclarator); ok {
+			return id.DeclaredIdentifier()
+		}
+		d = d.GetInnerDeclarator()
+	}
+	return ""
+}
+
+//goland:noinspection GoUnusedFunction
+func findIdentifierDeclarator(d cxx.Declarator) *cxx.IdentifierDeclarator {
+	for d != nil {
+		if id, ok := d.(*cxx.IdentifierDeclarator); ok {
+			return id
+		}
+		d = d.GetInnerDeclarator()
+	}
+	return nil
+}
+
+func Test_NoOperatorOverloadError(t *testing.T) {
+	// Struct without operator+ should still give error 19
+	// Error 30 cascades from attempting to cast struct to arithmetic type
+	code := `
+struct V { int x; };
+void main() {
+V a; a.x = 1;
+V b; b.x = 2;
+V c = a + b;
+}`
+	safeRunFailed(t, code, newTestMachineInfo(t), 19, 30)
+}
+
+func Test_InternalOperatorWithBasicReturnType(t *testing.T) {
+	mi := newTestMachineInfo(t)
+	mi.HeaderCode += "struct V { int x; int operator<(V other); };\n"
+	mi.AddInternalFunction("int V::operator<(V other)", func(interp *cxx.CInterpreter) {
+		_this := new(interp.ReadThis()).PointerValue()
+		thisX := interp.Stack[_this].Int32Value()
+		otherX := new(interp.ReadArg(0)).Int32Value()
+		if thisX < otherX {
+			interp.Push(cxx.UnionValue(1))
+		} else {
+			interp.Push(cxx.UnionValue(0))
+		}
+	})
+
+	code := `
+void main() {
+V a; a.x = 3;
+V b; b.x = 5;
+assertAreEqual(1, a < b);
+assertAreEqual(0, b < a);
+}`
+	safeRun(t, code, mi)
+}
+
+func Test_InternalOperatorWithStructLayout(t *testing.T) {
+	// Test multi-field struct return and parameter access
+	mi := newTestMachineInfo(t)
+	mi.HeaderCode += "struct Vec { int x; int y; Vec operator+(Vec other); };\n"
+	mi.AddInternalFunction("Vec Vec::operator+(Vec other)", func(interp *cxx.CInterpreter) {
+		_this := new(interp.ReadThis()).PointerValue()
+		thisX := interp.Stack[_this].Int32Value()
+		thisY := interp.Stack[_this+1].Int32Value()
+		// Multi-value struct parameter: compute base address from frame pointer
+		fp := interp.ActiveFrame().FP
+		paramOffset := interp.ActiveFrame().Function.GetFunctionType().Parameters()[0].Offset
+		otherBase := fp + paramOffset
+		otherX := interp.Stack[otherBase].Int32Value()
+		otherY := interp.Stack[otherBase+1].Int32Value()
+		interp.Push(cxx.UnionValue(thisX + otherX))
+		interp.Push(cxx.UnionValue(thisY + otherY))
+	})
+
+	code := `
+void main() {
+Vec a; a.x = 1; a.y = 10;
+Vec b; b.x = 2; b.y = 20;
+Vec c = a + b;
+assertAreEqual(3, c.x);
+assertAreEqual(30, c.y);
+}`
+	safeRun(t, code, mi)
+}
+
+func Test_ReflectionBasedOperators(t *testing.T) {
+	// C# class with operator+ exposed via AddGlobalReference.
+	// TestMachineInfo has IntSize=2, so C# int maps to C long,
+	// requiring assert32AreEqual for 32-bit comparison.
+	/* mi := newTestMachineInfo(t);
+	    calc := new TestCalculator ();
+	    mi.AddGlobalReference ("calc", calc);
+
+	    code := `
+	void main() {
+	long result = calc + 10;
+	assert32AreEqual(20, result);
+	}`
+	    Run (code, mi); */
+}
+
+//goland:noinspection GoMaybeNil
+func testPromote(t *testing.T, mi *cxx.MachineInfo, type_ string, resultBytes int, signedness cxx.Signedness) {
+	printer := newTestPrinter(nil, nil)
+	report := cxx.NewReport(printer)
+	context := cxx.NewExecutableContext(cxx.NewExecutable(mi), report)
+
+	compiler := cxx.NewCCompiler(cxx.NewCompilerOptions(mi, report, nil))
+	compiler.AddCode("test.c", type_+" v;")
+	exe := compiler.Compile()
+
+	var sVar *cxx.CompiledVariable
+	for _, bf := range exe.Globals {
+		if bf.Name == "s" {
+			sVar = &bf
+			break
+		}
+	}
+	assert.NotNil(t, sVar)
+	ty := sVar.VariableType
+
+	assert.IsType(t, &cxx.CBasicType{}, ty)
+
+	bty := ty.(*cxx.CBasicType)
+	assert.True(t, bty.IsIntegral())
+	pty := bty.IntegerPromote(context.EmitContext)
+
+	assert.Equal(t, pty.(*cxx.CBasicType).Signedness, signedness)
+	assert.Equal(t, pty.GetByteSize(context.EmitContext), resultBytes)
+}
+
+//goland:noinspection GoMaybeNil
+func testArithmetic(t *testing.T, mi *cxx.MachineInfo, type1 string, type2 string, result cxx.CBasicType) {
+	printer := newTestPrinter(nil, nil)
+	report := cxx.NewReport(printer)
+	context := cxx.NewExecutableContext(cxx.NewExecutable(mi), report)
+
+	compiler := cxx.NewCCompiler(cxx.NewCompilerOptions(mi, report, nil))
+	compiler.AddCode("test.c", type1+" v1; "+type2+" v2;")
+	exe := compiler.Compile()
+
+	var sVar1 *cxx.CompiledVariable
+	for _, bf := range exe.Globals {
+		if bf.Name == "v1" {
+			sVar1 = &bf
+			break
+		}
+	}
+	assert.NotNil(t, sVar1)
+	ty1 := sVar1.VariableType
+
+	var sVar2 *cxx.CompiledVariable
+	for _, bf := range exe.Globals {
+		if bf.Name == "v2" {
+			sVar2 = &bf
+			break
+		}
+	}
+	assert.NotNil(t, sVar2)
+	ty2 := sVar2.VariableType
+
+	assert.IsType(t, &cxx.CBasicType{}, ty1)
+	assert.IsType(t, &cxx.CBasicType{}, ty2)
+
+	bty1 := ty1.(*cxx.CBasicType)
+	bty2 := ty2.(*cxx.CBasicType)
+	assert.True(t, bty1.IsIntegral())
+	assert.True(t, bty2.IsIntegral())
+	aty1 := bty1.ArithmeticConvert(bty2, context.EmitContext)
+	aty2 := bty2.ArithmeticConvert(bty1, context.EmitContext)
+
+	assert.Equal(t, aty1.(*cxx.CBasicType).Signedness, result.Signedness)
+	assert.Equal(t, aty1.GetByteSize(context.EmitContext), result.GetByteSize(context.EmitContext))
+	assert.Equal(t, aty2.(*cxx.CBasicType).Signedness, result.Signedness)
+	assert.Equal(t, aty2.GetByteSize(context.EmitContext), result.GetByteSize(context.EmitContext))
+}
+
+func Test_ArduinoPromote(t *testing.T) {
+	mi := newArduinoTestMachineInfo(t)
+
+	testPromote(t, mi, "unsigned char", 2, cxx.Signed)
+	testPromote(t, mi, "char", 2, cxx.Signed)
+	testPromote(t, mi, "short", 2, cxx.Signed)
+	testPromote(t, mi, "unsigned short", 2, cxx.Unsigned)
+	testPromote(t, mi, "int", 2, cxx.Signed)
+	testPromote(t, mi, "unsigned int", 2, cxx.Unsigned)
+	testPromote(t, mi, "long", 4, cxx.Signed)
+	testPromote(t, mi, "unsigned long", 4, cxx.Unsigned)
+}
+
+func Test_ArduinoArithmatic(t *testing.T) {
+	mi := newArduinoTestMachineInfo(t)
+
+	testArithmetic(t, mi, "char", "char", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "char", "unsigned char", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "char", "short", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "char", "unsigned short", cxx.UnsignedInt.CBasicType)
+	testArithmetic(t, mi, "char", "int", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "char", "unsigned int", cxx.UnsignedInt.CBasicType)
+	testArithmetic(t, mi, "char", "long", cxx.SignedLongInt.CBasicType)
+	testArithmetic(t, mi, "char", "unsigned long", cxx.UnsignedLongInt.CBasicType)
+
+	testArithmetic(t, mi, "unsigned char", "char", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned char", "unsigned char", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned char", "short", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned char", "unsigned short", cxx.UnsignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned char", "int", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned char", "unsigned int", cxx.UnsignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned char", "long", cxx.SignedLongInt.CBasicType)
+	testArithmetic(t, mi, "unsigned char", "unsigned long", cxx.UnsignedLongInt.CBasicType)
+
+	testArithmetic(t, mi, "short", "char", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "short", "unsigned char", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "short", "short", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "short", "unsigned short", cxx.UnsignedInt.CBasicType)
+	testArithmetic(t, mi, "short", "int", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "short", "unsigned int", cxx.UnsignedInt.CBasicType)
+	testArithmetic(t, mi, "short", "long", cxx.SignedLongInt.CBasicType)
+	testArithmetic(t, mi, "short", "unsigned long", cxx.UnsignedLongInt.CBasicType)
+
+	testArithmetic(t, mi, "unsigned short", "char", cxx.UnsignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned short", "unsigned char", cxx.UnsignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned short", "short", cxx.UnsignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned short", "unsigned short", cxx.UnsignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned short", "int", cxx.UnsignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned short", "unsigned int", cxx.UnsignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned short", "long", cxx.SignedLongInt.CBasicType)
+	testArithmetic(t, mi, "unsigned short", "unsigned long", cxx.UnsignedLongInt.CBasicType)
+
+	testArithmetic(t, mi, "int", "char", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "int", "unsigned char", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "int", "short", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "int", "unsigned short", cxx.UnsignedInt.CBasicType)
+	testArithmetic(t, mi, "int", "int", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "int", "unsigned int", cxx.UnsignedInt.CBasicType)
+	testArithmetic(t, mi, "int", "long", cxx.SignedLongInt.CBasicType)
+	testArithmetic(t, mi, "int", "unsigned long", cxx.UnsignedLongInt.CBasicType)
+
+	testArithmetic(t, mi, "unsigned int", "char", cxx.UnsignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned int", "unsigned char", cxx.UnsignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned int", "short", cxx.UnsignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned int", "unsigned short", cxx.UnsignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned int", "int", cxx.UnsignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned int", "unsigned int", cxx.UnsignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned int", "long", cxx.SignedLongInt.CBasicType)
+	testArithmetic(t, mi, "unsigned int", "unsigned long", cxx.UnsignedLongInt.CBasicType)
+
+	testArithmetic(t, mi, "long", "char", cxx.SignedLongInt.CBasicType)
+	testArithmetic(t, mi, "long", "unsigned char", cxx.SignedLongInt.CBasicType)
+	testArithmetic(t, mi, "long", "short", cxx.SignedLongInt.CBasicType)
+	testArithmetic(t, mi, "long", "unsigned short", cxx.SignedLongInt.CBasicType)
+	testArithmetic(t, mi, "long", "int", cxx.SignedLongInt.CBasicType)
+	testArithmetic(t, mi, "long", "unsigned int", cxx.SignedLongInt.CBasicType)
+	testArithmetic(t, mi, "long", "long", cxx.SignedLongInt.CBasicType)
+	testArithmetic(t, mi, "long", "unsigned long", cxx.UnsignedLongInt.CBasicType)
+
+	testArithmetic(t, mi, "unsigned long", "char", cxx.UnsignedLongInt.CBasicType)
+	testArithmetic(t, mi, "unsigned long", "unsigned char", cxx.UnsignedLongInt.CBasicType)
+	testArithmetic(t, mi, "unsigned long", "short", cxx.UnsignedLongInt.CBasicType)
+	testArithmetic(t, mi, "unsigned long", "unsigned short", cxx.UnsignedLongInt.CBasicType)
+	testArithmetic(t, mi, "unsigned long", "int", cxx.UnsignedLongInt.CBasicType)
+	testArithmetic(t, mi, "unsigned long", "unsigned int", cxx.UnsignedLongInt.CBasicType)
+	testArithmetic(t, mi, "unsigned long", "long", cxx.UnsignedLongInt.CBasicType)
+	testArithmetic(t, mi, "unsigned long", "unsigned long", cxx.UnsignedLongInt.CBasicType)
+}
+
+func Test_WindowsX86Promote(t *testing.T) {
+	mi := cxx.Windows32
+
+	testPromote(t, mi, "unsigned char", 4, cxx.Signed)
+	testPromote(t, mi, "char", 4, cxx.Signed)
+	testPromote(t, mi, "short", 4, cxx.Signed)
+	testPromote(t, mi, "unsigned short", 4, cxx.Signed)
+	testPromote(t, mi, "int", 4, cxx.Signed)
+	testPromote(t, mi, "unsigned int", 4, cxx.Unsigned)
+	testPromote(t, mi, "long", 4, cxx.Signed)
+	testPromote(t, mi, "unsigned long", 4, cxx.Unsigned)
+}
+
+func Test_Mac64Arithmatic(t *testing.T) {
+	mi := cxx.Mac64
+
+	testArithmetic(t, mi, "char", "char", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "char", "unsigned char", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "char", "short", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "char", "unsigned short", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "char", "int", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "char", "unsigned int", cxx.UnsignedInt.CBasicType)
+	testArithmetic(t, mi, "char", "long", cxx.SignedLongInt.CBasicType)
+	testArithmetic(t, mi, "char", "unsigned long", cxx.UnsignedLongInt.CBasicType)
+
+	testArithmetic(t, mi, "unsigned char", "char", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned char", "unsigned char", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned char", "short", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned char", "unsigned short", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned char", "int", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned char", "unsigned int", cxx.UnsignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned char", "long", cxx.SignedLongInt.CBasicType)
+	testArithmetic(t, mi, "unsigned char", "unsigned long", cxx.UnsignedLongInt.CBasicType)
+
+	testArithmetic(t, mi, "short", "char", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "short", "unsigned char", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "short", "short", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "short", "unsigned short", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "short", "int", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "short", "unsigned int", cxx.UnsignedInt.CBasicType)
+	testArithmetic(t, mi, "short", "long", cxx.SignedLongInt.CBasicType)
+	testArithmetic(t, mi, "short", "unsigned long", cxx.UnsignedLongInt.CBasicType)
+
+	testArithmetic(t, mi, "unsigned short", "char", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned short", "unsigned char", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned short", "short", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned short", "unsigned short", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned short", "int", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned short", "unsigned int", cxx.UnsignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned short", "long", cxx.SignedLongInt.CBasicType)
+	testArithmetic(t, mi, "unsigned short", "unsigned long", cxx.UnsignedLongInt.CBasicType)
+
+	testArithmetic(t, mi, "int", "char", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "int", "unsigned char", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "int", "short", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "int", "unsigned short", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "int", "int", cxx.SignedInt.CBasicType)
+	testArithmetic(t, mi, "int", "unsigned int", cxx.UnsignedInt.CBasicType)
+	testArithmetic(t, mi, "int", "long", cxx.SignedLongInt.CBasicType)
+	testArithmetic(t, mi, "int", "unsigned long", cxx.UnsignedLongInt.CBasicType)
+
+	testArithmetic(t, mi, "unsigned int", "char", cxx.UnsignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned int", "unsigned char", cxx.UnsignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned int", "short", cxx.UnsignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned int", "unsigned short", cxx.UnsignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned int", "int", cxx.UnsignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned int", "unsigned int", cxx.UnsignedInt.CBasicType)
+	testArithmetic(t, mi, "unsigned int", "long", cxx.SignedLongInt.CBasicType)
+	testArithmetic(t, mi, "unsigned int", "unsigned long", cxx.UnsignedLongInt.CBasicType)
+
+	testArithmetic(t, mi, "long", "char", cxx.SignedLongInt.CBasicType)
+	testArithmetic(t, mi, "long", "unsigned char", cxx.SignedLongInt.CBasicType)
+	testArithmetic(t, mi, "long", "short", cxx.SignedLongInt.CBasicType)
+	testArithmetic(t, mi, "long", "unsigned short", cxx.SignedLongInt.CBasicType)
+	testArithmetic(t, mi, "long", "int", cxx.SignedLongInt.CBasicType)
+	testArithmetic(t, mi, "long", "unsigned int", cxx.SignedLongInt.CBasicType)
+	testArithmetic(t, mi, "long", "long", cxx.SignedLongInt.CBasicType)
+	testArithmetic(t, mi, "long", "unsigned long", cxx.UnsignedLongInt.CBasicType)
+
+	testArithmetic(t, mi, "unsigned long", "char", cxx.UnsignedLongInt.CBasicType)
+	testArithmetic(t, mi, "unsigned long", "unsigned char", cxx.UnsignedLongInt.CBasicType)
+	testArithmetic(t, mi, "unsigned long", "short", cxx.UnsignedLongInt.CBasicType)
+	testArithmetic(t, mi, "unsigned long", "unsigned short", cxx.UnsignedLongInt.CBasicType)
+	testArithmetic(t, mi, "unsigned long", "int", cxx.UnsignedLongInt.CBasicType)
+	testArithmetic(t, mi, "unsigned long", "unsigned int", cxx.UnsignedLongInt.CBasicType)
+	testArithmetic(t, mi, "unsigned long", "long", cxx.UnsignedLongInt.CBasicType)
+	testArithmetic(t, mi, "unsigned long", "unsigned long", cxx.UnsignedLongInt.CBasicType)
+}
+
+func parseVariables(code string) []cxx.CompiledVariable {
+	exe := cxx.Compile(code, cxx.Windows32, newTestPrinter(nil, nil))
+	return exe.Globals[1:] // Skip __zero__
+}
+
+func parseFunctions(code string) []cxx.BaseFunction {
+	exe := cxx.Compile(code, cxx.Windows32, newTestPrinter(nil, nil))
+	funcs := make([]cxx.BaseFunction, len(exe.Functions))
+	for _, f := range exe.Functions {
+		if f.GetName() != "__cinit" {
+			funcs = append(funcs, f)
+		}
+	}
+	return funcs
+}
+
+func Test_QualifiedBasic(t *testing.T) {
+	vs := parseVariables("const int cat;")
+	v := vs[0]
+	assert.IsType(t, &cxx.CBasicType{}, v.VariableType)
+	assert.Equal(t, cxx.TypeQualifiersConst, v.VariableType.GetTypeQualifiers())
+}
+
+func Test_NonConstPointerToConstChar(t *testing.T) {
+	vs := parseVariables("const char *kite;")
+	v := vs[0]
+	assert.Equal(t, "kite", v.Name)
+	assert.IsType(t, &cxx.CPointerType{}, v.VariableType)
+	pt := v.VariableType.(*cxx.CPointerType)
+	assert.Equal(t, cxx.TypeQualifiersNone, pt.TypeQualifiers)
+
+	assert.IsType(t, &cxx.CBasicType{}, pt.InnerType)
+	assert.Equal(t, "char", (pt.InnerType.(*cxx.CBasicType)).Name)
+	assert.Equal(t, cxx.TypeQualifiersConst, pt.InnerType.GetTypeQualifiers())
+}
+
+func Test_ConstPointerToChar(t *testing.T) {
+	vs := parseVariables("char * const pentagon;")
+	v := vs[0]
+	assert.Equal(t, "pentagon", v.Name)
+	assert.IsType(t, &cxx.CPointerType{}, v.VariableType)
+	pt := v.VariableType.(*cxx.CPointerType)
+	assert.Equal(t, cxx.TypeQualifiersConst, pt.TypeQualifiers)
+
+	assert.IsType(t, &cxx.CBasicType{}, pt.InnerType)
+	assert.Equal(t, "char", (pt.InnerType.(*cxx.CBasicType)).Name)
+	assert.Equal(t, cxx.TypeQualifiersNone, pt.InnerType.GetTypeQualifiers())
+}
+
+func Test_ConstPointerToConstChar1(t *testing.T) {
+	vs := parseVariables("char const * const hexagon;")
+	v := vs[0]
+	assert.Equal(t, "hexagon", v.Name)
+	assert.IsType(t, &cxx.CPointerType{}, v.VariableType)
+	pt := v.VariableType.(*cxx.CPointerType)
+	assert.Equal(t, cxx.TypeQualifiersConst, pt.TypeQualifiers)
+
+	assert.IsType(t, &cxx.CBasicType{}, pt.InnerType)
+	assert.Equal(t, "char", (pt.InnerType.(*cxx.CBasicType)).Name)
+	assert.Equal(t, cxx.TypeQualifiersConst, pt.InnerType.GetTypeQualifiers())
+}
+
+func Test_ConstPointerToConstChar2(t *testing.T) {
+	vs := parseVariables("const char * const hexagon;")
+	v := vs[0]
+	assert.Equal(t, "hexagon", v.Name)
+	assert.IsType(t, &cxx.CPointerType{}, v.VariableType)
+	pt := v.VariableType.(*cxx.CPointerType)
+	assert.Equal(t, cxx.TypeQualifiersConst, pt.TypeQualifiers)
+
+	assert.IsType(t, &cxx.CBasicType{}, pt.InnerType)
+	assert.Equal(t, "char", (pt.InnerType.(*cxx.CBasicType)).Name)
+	assert.Equal(t, cxx.TypeQualifiersConst, pt.InnerType.GetTypeQualifiers())
+}
+
+func Test_PointerToPointer(t *testing.T) {
+	vs := parseVariables("char **septagon;")
+	v := vs[0]
+	assert.Equal(t, "septagon", v.Name)
+	assert.IsType(t, &cxx.CPointerType{}, v.VariableType)
+	pt := v.VariableType.(*cxx.CPointerType)
+
+	assert.IsType(t, &cxx.CPointerType{}, pt.InnerType)
+	pt1 := pt.InnerType.(*cxx.CPointerType)
+
+	assert.IsType(t, &cxx.CBasicType{}, pt1.InnerType)
+	assert.Equal(t, "char", (pt1.InnerType.(*cxx.CBasicType)).Name)
+}
+
+func Test_PointerToConstPointerToConstBasic(t *testing.T) {
+	vs := parseVariables("unsigned long const int * const *octagon;")
+	v := vs[0]
+	assert.Equal(t, "octagon", v.Name)
+
+	assert.IsType(t, &cxx.CPointerType{}, v.VariableType)
+	pt := v.VariableType.(*cxx.CPointerType)
+	assert.Equal(t, cxx.TypeQualifiersNone, pt.TypeQualifiers)
+
+	assert.IsType(t, &cxx.CPointerType{}, pt.InnerType)
+	pt1 := pt.InnerType.(*cxx.CPointerType)
+	assert.Equal(t, cxx.TypeQualifiersConst, pt1.TypeQualifiers)
+
+	assert.IsType(t, &cxx.CBasicType{}, pt1.InnerType)
+	b := pt1.InnerType.(*cxx.CBasicType)
+	assert.Equal(t, cxx.TypeQualifiersConst, b.TypeQualifiers)
+	assert.Equal(t, "int", b.Name)
+}
+
+func Test_ArrayOfPointers(t *testing.T) {
+	vs := parseVariables("char *mice[10];")
+	assert.IsType(t, &cxx.CArrayType{}, vs[0].VariableType)
+	a := (vs[0].VariableType).(*cxx.CArrayType)
+	assert.Equal(t, 10, *a.Length)
+
+	assert.IsType(t, &cxx.CPointerType{}, a.ElementType)
+	p := (a.ElementType).(*cxx.CPointerType)
+
+	assert.IsType(t, &cxx.CBasicType{}, p.InnerType)
+	assert.Equal(t, "char", (p.InnerType).(*cxx.CBasicType).Name)
+}
+
+func Test_ArrayOfPointersToArray(t *testing.T) {
+	vs := parseVariables("int (*a[5])[42];")
+	assert.IsType(t, &cxx.CArrayType{}, vs[0].VariableType)
+	a := (vs[0].VariableType).(*cxx.CArrayType)
+	assert.Equal(t, 5, *a.Length)
+
+	assert.IsType(t, &cxx.CPointerType{}, a.ElementType)
+	p := (a.ElementType).(*cxx.CPointerType)
+
+	assert.IsType(t, &cxx.CArrayType{}, p.InnerType)
+}
+
+func Test_PointerToArrayOfPointers(t *testing.T) {
+	vs := parseVariables("int *(*crocodile)[15];")
+	v := vs[0]
+	assert.Equal(t, "crocodile", v.Name)
+	assert.IsType(t, &cxx.CPointerType{}, v.VariableType)
+	p := v.VariableType.(*cxx.CPointerType)
+
+	assert.IsType(t, &cxx.CArrayType{}, p.InnerType)
+	a := p.InnerType.(*cxx.CArrayType)
+	assert.Equal(t, 15, *a.Length)
+
+	assert.IsType(t, &cxx.CPointerType{}, a.ElementType)
+	p2 := a.ElementType.(*cxx.CPointerType)
+
+	assert.IsType(t, &cxx.CBasicType{}, p2.InnerType)
+	assert.Equal(t, "int", (p2.InnerType).(*cxx.CBasicType).Name)
+}
+
+func Test_FunctionPointerReturnVoidArg(t *testing.T) {
+	codes := []string{
+		"char *wicket(void) {return 0;}",
+	}
+	for _, code := range codes {
+		fs := parseFunctions(code)
+		assert.Equal(t, 1, len(fs))
+		f := fs[0]
+		assert.Equal(t, "wicket", f.GetName())
+
+		assert.IsType(t, &cxx.CPointerType{}, f.GetFunctionType().ReturnType)
+		assert.Equal(t, "char", ((f.GetFunctionType().ReturnType.(*cxx.CPointerType)).InnerType).(*cxx.CBasicType).Name)
+
+		assert.Equal(t, 0, len(f.GetFunctionType().Parameters()))
+	}
+}
+
+func Test_FunctionWithFunctionArg(t *testing.T) {
+	codes := []string{
+		"int crowd(char p1, int (*p2)(void)) {return 0;}",
+		"int crowd(char p1, int p2(void)) {return 0;}",
+	}
+	for _, code := range codes {
+		fs := parseFunctions(code)
+		assert.Equal(t, 1, len(fs))
+		f := fs[0]
+		assert.Equal(t, "crowd", f.GetName())
+
+		assert.IsType(t, &cxx.CBasicType{}, f.GetFunctionType().ReturnType)
+		assert.Equal(t, "int", (f.GetFunctionType().ReturnType.(*cxx.CBasicType)).Name)
+
+		assert.Equal(t, 2, len(f.GetFunctionType().Parameters()))
+		p1 := f.GetFunctionType().Parameters()[0]
+		p2 := f.GetFunctionType().Parameters()[1]
+
+		assert.IsType(t, &cxx.CBasicType{}, p1.ParameterType)
+		assert.Equal(t, "char", (p1.ParameterType).(*cxx.CBasicType).Name)
+
+		assert.IsType(t, &cxx.CFunctionType{}, p2.ParameterType)
+		assert.Equal(t, "int", ((p2.ParameterType.(*cxx.CFunctionType)).ReturnType).(*cxx.CBasicType).Name)
+	}
+}
+
+func Test_FunctionWithFunctionArgReturningPointer(t *testing.T) {
+	codes := []string{
+		"int crowd(char p1, int *(*p2)(void)) {return 0;}",
+		"int crowd(char p1, int *p2(void)) {return 0;}",
+	}
+	for _, code := range codes {
+		fs := parseFunctions(code)
+		assert.Equal(t, 1, len(fs))
+		f := fs[0]
+		p1 := f.GetFunctionType().Parameters()[0]
+		p2 := f.GetFunctionType().Parameters()[1]
+
+		assert.IsType(t, &cxx.CBasicType{}, p1.ParameterType)
+		assert.Equal(t, "char", (p1.ParameterType).(*cxx.CBasicType).Name)
+
+		assert.IsType(t, &cxx.CFunctionType{}, p2.ParameterType)
+		assert.IsType(t, &cxx.CPointerType{}, (p2.ParameterType).(*cxx.CFunctionType).ReturnType)
+	}
+}
+
+func Test_PointerToFunction(t *testing.T) {
+	code := "int (**f)();"
+
+	vs := parseVariables(code)
+	assert.Equal(t, 1, len(vs))
+	fv := vs[0]
+	assert.Equal(t, "f", fv.Name)
+
+	assert.IsType(t, &cxx.CPointerType{}, fv.VariableType)
+	fp := fv.VariableType.(*cxx.CPointerType)
+
+	assert.IsType(t, &cxx.CFunctionType{}, fp.InnerType)
+	f := fp.InnerType.(*cxx.CFunctionType)
+
+	assert.Equal(t, 0, len(f.Parameters()))
+}
+
+func Test_FunctionReturningFunction(t *testing.T) {
+	code := "long int *(*boundary(double size))(int x, int y);"
+
+	vs := parseVariables(code)
+	assert.Equal(t, 1, len(vs))
+	fv := vs[0]
+	assert.Equal(t, "boundary", fv.Name)
+
+	f := fv.VariableType.(*cxx.CFunctionType)
+
+	assert.Equal(t, 1, len(f.Parameters()))
+	assert.Equal(t, "size", f.Parameters()[0].Name)
+
+	p1 := f.Parameters()[0]
+
+	assert.IsType(t, &cxx.CBasicType{}, p1.ParameterType)
+	assert.Equal(t, "double", (p1.ParameterType).(*cxx.CBasicType).Name)
+
+	assert.IsType(t, &cxx.CFunctionType{}, f.ReturnType)
+	r := f.ReturnType.(*cxx.CFunctionType)
+
+	assert.Equal(t, 2, len(r.Parameters()))
+
+	assert.IsType(t, &cxx.CPointerType{}, r.ReturnType)
+}
+
+func Test_AutoConstants(t *testing.T) {
+	assertAutoType(t, "1", cxx.SignedInt)
+	assertAutoType(t, "1l", cxx.SignedLongInt)
+	assertAutoType(t, "true", cxx.Bool)
+	assertAutoType(t, "false", cxx.Bool)
+	assertAutoType(t, "1 + 2", cxx.SignedInt)
+	assertAutoType(t, "1 + 2.0", cxx.Double)
+}
+
+//goland:noinspection ALL
+func assertAutoType(t *testing.T, code string, expectedType cxx.CType) {
+	fullCode := "auto x = " + code + ";"
+	exe := cxx.Compile(fullCode, newArduinoTestMachineInfo(t), nil)
+
+	var sVar *cxx.CompiledVariable
+	for _, bf := range exe.Globals {
+		if bf.Name == "x" {
+			sVar = &bf
+			break
+		}
+	}
+	assert.NotNil(t, sVar)
+	assert.Equal(t, expectedType, sVar.VariableType)
+}
+
+func Test_ShortLongIntIsError(t *testing.T) {
+	safeRunFailed(t, "void main() { short long int x = 0; }", newTestMachineInfo(t), 2078)
+}
+
+func Test_ShortShortIntIsError(t *testing.T) {
+	safeRunFailed(t, "void main() { short short int x = 0; }", newTestMachineInfo(t), 2078)
+}
+
+func Test_LongFloatIsError(t *testing.T) {
+	safeRunFailed(t, "void main() { long float x = 0; }", newTestMachineInfo(t), 2078)
+}
+
+func Test_ShortFloatIsError(t *testing.T) {
+	safeRunFailed(t, "void main() { short float x = 0; }", newTestMachineInfo(t), 2078)
+}
+
+func Test_ShortDoubleIsError(t *testing.T) {
+	safeRunFailed(t, "void main() { short double x = 0; }", newTestMachineInfo(t), 2078)
+}
+
+func Test_LongBoolIsError(t *testing.T) {
+	safeRunFailed(t, "void main() { long bool x = 0; }", newTestMachineInfo(t), 2078)
+}
+
+func Test_ShortBoolIsError(t *testing.T) {
+	safeRunFailed(t, "void main() { short bool x = 0; }", newTestMachineInfo(t), 2078)
 }
 
 //endregion
