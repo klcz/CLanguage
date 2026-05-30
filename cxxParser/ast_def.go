@@ -222,12 +222,6 @@ func (d *FunctionDeclarator) CouldBeCtorCall() bool {
 	return false
 }
 
-// ── MakeArrayDeclarator ──────────────────────────────────────────────────────
-
-func MakeArrayDeclarator(inner Declarator, q TypeQualifiers, length Expression, isStatic bool) Declarator {
-	return NewArrayDeclarator(inner, q, length, isStatic)
-}
-
 // ── Declaration interface ────────────────────────────────────────────────────
 
 type Declaration interface {

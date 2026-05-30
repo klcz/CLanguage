@@ -386,6 +386,52 @@ func parseCode(t *testing.T, code string) *TranslationUnit {
 	return ParseTranslationUnit(code)
 }
 
+func printDecl(d Declarator, indent string) {
+	if d == nil {
+		return
+	}
+	switch x := d.(type) {
+	case *PointerDeclarator:
+		fmt.Printf("%sPointerDeclarator(StrongBinding=%v)\n", indent, x.StrongBinding)
+		printDecl(x.GetInnerDeclarator(), indent+"  ")
+	case *ArrayDeclarator:
+		fmt.Printf("%sArrayDeclarator(len=%v)\n", indent, x.LengthExpression)
+		printDecl(x.GetInnerDeclarator(), indent+"  ")
+	case *IdentifierDeclarator:
+		fmt.Printf("%sIdentifierDeclarator(%v)\n", indent, x.Name)
+	case *FunctionDeclarator:
+		fmt.Printf("%sFunctionDeclarator\n", indent)
+	default:
+		fmt.Printf("%sUnknown: %T\n", indent, d)
+	}
+}
+
+func Test_DebugDeclTree(t *testing.T) {
+	tests := []string{
+		"int (*a)[42];",
+		"int (*a[5])[42];",
+		"int (*a)[2][3][5][7][11];",
+		"int (*a)[42][12];",
+	}
+	for _, code := range tests {
+		fmt.Println("\n=== " + code + " ===")
+
+		tu := ParseTranslationUnit(code)
+		if tu != nil && len(tu.Statements) > 0 {
+			switch s := tu.Statements[0].(type) {
+			case *MultiDeclaratorStatement:
+				for _, id := range s.InitDeclarators {
+					if id.Declarator != nil {
+						printDecl(id.Declarator, "")
+					}
+				}
+			default:
+				fmt.Printf("Statement type: %T\n", s)
+			}
+		}
+	}
+}
+
 func TestReturnStatement(t *testing.T) {
 	runCode(t, `
 int foo() { return 42; }

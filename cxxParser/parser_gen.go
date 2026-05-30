@@ -583,24 +583,28 @@ continueYyLoop:
 				p.yyVal = p.yyVals[-3+yyTop].(*IdentifierDeclarator).Push("operator" + p.yyVals[0+yyTop].(string))
 			case 186, 221:
 				d := p.yyVals[-1+yyTop].(Declarator)
-				if pd, ok := d.(*PointerDeclarator); ok {
-					pd.StrongBinding = true
+				if f := p.FixPointerAndArrayPrecedence(d); f != nil {
+					p.yyVal = f
+				} else {
+					if pd, ok := d.(*PointerDeclarator); ok {
+						pd.StrongBinding = true
+					}
+					p.yyVal = d
 				}
-				p.yyVal = d
 			case 187:
-				p.yyVal = MakeArrayDeclarator(p.yyVals[-4+yyTop].(Declarator), p.yyVals[-2+yyTop].(TypeQualifiers), p.yyVals[-1+yyTop].(Expression), false)
+				p.yyVal = p.MakeArrayDeclarator(p.yyVals[-4+yyTop].(Declarator), p.yyVals[-2+yyTop].(TypeQualifiers), p.yyVals[-1+yyTop].(Expression), false)
 			case 188, 193, 227:
-				p.yyVal = MakeArrayDeclarator(p.yyVals[-3+yyTop].(Declarator), 0, nil, false)
+				p.yyVal = p.MakeArrayDeclarator(p.yyVals[-3+yyTop].(Declarator), 0, nil, false)
 			case 189, 225:
-				p.yyVal = MakeArrayDeclarator(p.yyVals[-3+yyTop].(Declarator), 0, p.yyVals[-1+yyTop].(Expression), false)
+				p.yyVal = p.MakeArrayDeclarator(p.yyVals[-3+yyTop].(Declarator), 0, p.yyVals[-1+yyTop].(Expression), false)
 			case 190:
-				p.yyVal = MakeArrayDeclarator(p.yyVals[-5+yyTop].(Declarator), p.yyVals[-2+yyTop].(TypeQualifiers), p.yyVals[-1+yyTop].(Expression), true)
+				p.yyVal = p.MakeArrayDeclarator(p.yyVals[-5+yyTop].(Declarator), p.yyVals[-2+yyTop].(TypeQualifiers), p.yyVals[-1+yyTop].(Expression), true)
 			case 191:
-				p.yyVal = MakeArrayDeclarator(p.yyVals[-5+yyTop].(Declarator), p.yyVals[-3+yyTop].(TypeQualifiers), p.yyVals[-1+yyTop].(Expression), true)
+				p.yyVal = p.MakeArrayDeclarator(p.yyVals[-5+yyTop].(Declarator), p.yyVals[-3+yyTop].(TypeQualifiers), p.yyVals[-1+yyTop].(Expression), true)
 			case 192:
-				p.yyVal = MakeArrayDeclarator(p.yyVals[-4+yyTop].(Declarator), p.yyVals[-2+yyTop].(TypeQualifiers), nil, false)
+				p.yyVal = p.MakeArrayDeclarator(p.yyVals[-4+yyTop].(Declarator), p.yyVals[-2+yyTop].(TypeQualifiers), nil, false)
 			case 194, 224:
-				p.yyVal = MakeArrayDeclarator(p.yyVals[-2+yyTop].(Declarator), 0, nil, false)
+				p.yyVal = p.MakeArrayDeclarator(p.yyVals[-2+yyTop].(Declarator), 0, nil, false)
 			case 195, 231, 274:
 				p.yyVal = NewFunctionDeclarator(p.yyVals[-3+yyTop].(Declarator), p.yyVals[-1+yyTop].([]*ParameterDeclaration))
 			case 196:
@@ -655,9 +659,9 @@ continueYyLoop:
 			case 218:
 				p.yyVal = NewReferenceDeclarator(nil)
 			case 222, 226:
-				p.yyVal = MakeArrayDeclarator(nil, 0, nil, false)
+				p.yyVal = p.MakeArrayDeclarator(nil, 0, nil, false)
 			case 223:
-				p.yyVal = MakeArrayDeclarator(nil, 0, p.yyVals[-1+yyTop].(Expression), false)
+				p.yyVal = p.MakeArrayDeclarator(nil, 0, p.yyVals[-1+yyTop].(Expression), false)
 			case 228:
 				p.yyVal = NewFunctionDeclarator(nil, []*ParameterDeclaration{})
 			case 229:
