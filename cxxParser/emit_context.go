@@ -465,23 +465,15 @@ func (ec *EmitContext) MakeCTypeFromDecl(type_ CType, decl Declarator, init Init
 				}
 			}
 
-			arrType := NewCArrayType(type_, length)
-			if adecl.InnerDeclarator != nil {
-				nextArray, nextOk := adecl.InnerDeclarator.(*ArrayDeclarator)
-				if nextOk && nextArray != nil {
-					type_ = arrType
-					adecl = nextArray
-					continue
-				}
+			type_ = NewCArrayType(type_, length)
+			nextArray, _ := adecl.InnerDeclarator.(*ArrayDeclarator)
+			adecl = nextArray
+			if adecl != nil && adecl.InnerDeclarator != nil {
 				if _, isId := adecl.InnerDeclarator.(*IdentifierDeclarator); isId {
-					type_ = arrType
-				} else {
-					type_ = ec.MakeCTypeFromDecl(arrType, adecl.InnerDeclarator, nil, block)
+				} else if _, isArr := adecl.InnerDeclarator.(*ArrayDeclarator); !isArr {
+					type_ = ec.MakeCTypeFromDecl(type_, adecl.InnerDeclarator, nil, block)
 				}
-			} else {
-				type_ = arrType
 			}
-			adecl = nil
 		}
 
 	case *FunctionDeclarator:
